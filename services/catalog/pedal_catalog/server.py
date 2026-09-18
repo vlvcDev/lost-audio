@@ -1,0 +1,176 @@
+from __future__ import annotations
+
+import json
+import os
+import socketserver
+import threading
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any
+
+from .index import list_models, scan_models, upsert_model
+from .oauth_callback import OAuthCallbackServer
+from .tone3000 import Tone3000Error
+from .tone3000_service import Tone3000Service
+
+
+API_VERSION = 1
+
+
+def handle_request(
+    message: dict[str, Any],
+    models_dir: Path,
+    database: Path,
+    tone3000: Tone3000Service | None = None,
+) -> dict:
+    request_id = str(message.get("id", "unknown"))
+    if message.get("api") != API_VERSION:
+        return _error(request_id, "unsupported_api", "Only catalog API v1 is supported")
+
+    message_type = message.get("type")
+    payload = message.get("payload") or {}
+    if message_type == "list_models":
+        query = payload.get("query", "")
+        if not isinstance(query, str):
+            return _error(request_id, "invalid_payload", "query must be a string")
+        models = [asdict(model) for model in list_models(database, query=query)]
+        return _response(request_id, "models", {"models": models})
+    if message_type == "refresh_models":
+        records = scan_models(models_dir, database)
+        return _response(request_id, "refreshed", {"count": len(records)})
+    if message_type == "tone3000_status":
+        status = (
+            tone3000.status()
+            if tone3000
+            else {
+                "available": False,
+                "connected": False,
+                "auth_pending": False,
+                "selected_tone_id": None,
+            }
+        )
+        return _response(request_id, "tone3000_status", status)
+    if tone3000 is None and isinstance(message_type, str) and message_type.startswith("tone3000_"):
+        return _error(
+            request_id,
+            "tone3000_unavailable",
+            "TONE3000 is not configured on this device",
+        )
+    try:
+        if message_type == "tone3000_begin_auth":
+            return _response(
+                request_id,
+                "tone3000_auth",
+                {"authorize_url": tone3000.begin_auth()},  # type: ignore[union-attr]
+            )
+        if message_type == "tone3000_disconnect":
+            tone3000.disconnect()  # type: ignore[union-attr]
+            return _response(request_id, "tone3000_status", tone3000.status())  # type: ignore[union-attr]
+        if message_type == "tone3000_selected":
+            return _response(
+                request_id,
+                "tone3000_selected",
+                tone3000.selected(),  # type: ignore[union-attr]
+            )
+        if message_type == "tone3000_download":
+            tone_id = payload.get("tone_id")
+            model_id = payload.get("model_id")
+            if not isinstance(tone_id, (str, int)) or not isinstance(model_id, (str, int)):
+                return _error(
+                    request_id,
+                    "invalid_payload",
+                    "tone_id and model_id are required",
+                )
+            path, _ = tone3000.download(str(tone_id), str(model_id), models_dir)  # type: ignore[union-attr]
+            record = upsert_model(path, database, source=f"tone3000:model:{model_id}")
+            return _response(request_id, "tone3000_downloaded", {"model": asdict(record)})
+    except Tone3000Error as error:
+        return _error(request_id, "tone3000_error", str(error))
+    return _error(request_id, "unknown_message", "Unknown catalog message type")
+
+
+def _response(request_id: str, message_type: str, payload: dict) -> dict:
+    return {"api": API_VERSION, "id": request_id, "type": message_type, "payload": payload}
+
+
+def _error(request_id: str, code: str, message: str) -> dict:
+    return _response(request_id, "error", {"code": code, "message": message})
+
+
+class _CatalogServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(
+        self,
+        socket_path: Path,
+        models_dir: Path,
+        database: Path,
+        tone3000: Tone3000Service | None,
+        tone3000_lock: threading.Lock,
+    ) -> None:
+        self.models_dir = models_dir
+        self.database = database
+        self.tone3000 = tone3000
+        self.tone3000_lock = tone3000_lock
+        super().__init__(str(socket_path), _CatalogHandler)
+
+
+class _CatalogHandler(socketserver.StreamRequestHandler):
+    def handle(self) -> None:
+        server: _CatalogServer = self.server  # type: ignore[assignment]
+        for raw_line in self.rfile:
+            try:
+                message = json.loads(raw_line)
+                if not isinstance(message, dict):
+                    raise ValueError("request must be a JSON object")
+                with server.tone3000_lock:
+                    response = handle_request(
+                        message,
+                        server.models_dir,
+                        server.database,
+                        server.tone3000,
+                    )
+            except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
+                response = _error("unknown", "invalid_json", str(error))
+            self.wfile.write(json.dumps(response, separators=(",", ":")).encode() + b"\n")
+            self.wfile.flush()
+
+
+def serve(
+    models_dir: Path,
+    database: Path,
+    socket_path: Path,
+    tone3000: Tone3000Service | None = None,
+) -> None:
+    models_dir.mkdir(parents=True, exist_ok=True)
+    database.parent.mkdir(parents=True, exist_ok=True)
+    socket_path.parent.mkdir(parents=True, exist_ok=True)
+    scan_models(models_dir, database)
+    socket_path.unlink(missing_ok=True)
+    tone3000_lock = threading.Lock()
+    callback = (
+        OAuthCallbackServer(tone3000.redirect_uri, tone3000, tone3000_lock)
+        if tone3000 is not None
+        else None
+    )
+    try:
+        if callback is not None:
+            callback.start()
+            print(
+                f"TONE3000 callback listening on port {callback.address[1]}",
+                flush=True,
+            )
+        with _CatalogServer(
+            socket_path, models_dir, database, tone3000, tone3000_lock
+        ) as server:
+            os.chmod(socket_path, 0o660)
+            print(f"pedal-catalog listening on {socket_path}", flush=True)
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
+    finally:
+        if callback is not None:
+            callback.close()
+        socket_path.unlink(missing_ok=True)

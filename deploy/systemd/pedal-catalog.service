@@ -1,0 +1,22 @@
+[Unit]
+Description=Pedal local model catalog
+After=local-fs.target
+Before=pedal-ui.service
+
+[Service]
+Type=simple
+User=pedal
+Group=pedal
+EnvironmentFile=-/etc/pedal/tone3000.env
+RuntimeDirectory=pedal
+RuntimeDirectoryMode=0755
+ExecStart=/opt/pedal/venv/bin/pedal-catalog serve --models /var/lib/pedal/models --database /var/lib/pedal/catalog.db --socket /run/pedal/catalog.sock
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pedal /run/pedal
+
+[Install]
+WantedBy=multi-user.target

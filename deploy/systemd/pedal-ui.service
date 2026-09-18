@@ -1,0 +1,16 @@
+[Unit]
+Description=Pedal touchscreen user interface
+After=graphical.target pedal-engine.service pedal-catalog.service
+Wants=pedal-engine.service pedal-catalog.service
+
+[Service]
+Type=simple
+User=pedal
+Environment=PEDAL_CONTROL_SOCKET=/run/pedal/control.sock
+Environment=PEDAL_CATALOG_SOCKET=/run/pedal/catalog.sock
+ExecStart=/opt/pedal/ui/pedal_ui
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,12 @@
+sample_rate = 48000
+period_candidates = [64, 128]
+device = "auto"
+preferred_device_terms = ["Scarlett", "USB Audio"]
+capture_channels = 2
+playback_channels = 2
+guitar_input_channel = 0
+meter_hz = 20
+control_socket = "/run/pedal/control.sock"
+state_file = "/var/lib/pedal/engine-state.json"
+model_directory = "/var/lib/pedal/models"
+catalog_database = "/var/lib/pedal/catalog.db"

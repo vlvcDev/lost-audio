@@ -1,0 +1,15 @@
+/target/
+/.dart_tool/
+/.flutter-plugins*
+/build/
+/.pedal-dev/
+tools/dev-env.sh
+/.idea/
+*.iml
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/catalog.db*
+data/models/*.nam
+data/irs/*.wav
+!.gitkeep
