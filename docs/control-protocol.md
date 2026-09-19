@@ -9,7 +9,7 @@ Messages are UTF-8 JSON objects separated by newlines. Every request has `api`, 
 ```
 
 ```json
-{"api":1,"id":"ui-1","type":"state","payload":{"engine":"ready","bypassed":false,"pre_bypassed":false,"amp_bypassed":false,"preset":"Default","preset_id":null,"preset_dirty":false,"pre_model":null,"model":null,"pedal_drive_db":0.0,"pedal_mix":1.0,"pedal_level_db":0.0,"amp_bass_db":0.0,"amp_mid_db":0.0,"amp_treble_db":0.0,"amp_volume_db":0.0,"sample_rate":48000,"buffer_frames":64}}
+{"api":1,"id":"ui-1","type":"state","payload":{"engine":"ready","bypassed":false,"pre_bypassed":false,"amp_bypassed":false,"preset":"Default","preset_id":null,"preset_dirty":false,"pre_model":null,"model":null,"gate_enabled":false,"chorus_enabled":false,"delay_enabled":false,"reverb_enabled":false,"looper_mode":"stopped","tuner_enabled":false,"sample_rate":48000,"buffer_frames":64}}
 ```
 
 ## Set bypass
@@ -33,7 +33,7 @@ Authoritative state changes are persisted by the engine outside the audio callba
 The state response includes `pre_model` and `model` (the amp slot). At startup, both are restored locally and processed in this fixed order:
 
 ```text
-input -> pre/pedal NAM -> amp NAM -> output
+input -> gate -> compressor -> pre/pedal NAM -> amp NAM -> EQ -> chorus -> delay -> reverb -> looper -> output
 ```
 
 ## Control or clear one slot
@@ -71,12 +71,41 @@ The supported controls and ranges are:
 | `amp_mid_db` | -12 to +12 dB | After the amp NAM |
 | `amp_treble_db` | -12 to +12 dB | After the amp NAM |
 | `amp_volume_db` | -24 to +12 dB | After the amp tone stack |
+| `gate_threshold_db` | -80 to -10 dB | Noise gate threshold |
+| `compressor_threshold_db` | -48 to 0 dB | Compressor threshold |
+| `compressor_ratio` | 1 to 20 | Compressor ratio |
+| `eq_low_db`, `eq_mid_db`, `eq_high_db` | -12 to +12 dB | Post-amp three-band EQ |
+| `chorus_rate_hz` | 0.05 to 8 Hz | Chorus LFO speed |
+| `chorus_depth`, `chorus_mix` | 0.0 to 1.0 | Chorus depth and blend |
+| `delay_time_ms` | 20 to 1800 ms | Delay time |
+| `delay_feedback`, `delay_mix` | 0.0 to 0.92 / 1.0 | Delay repeats and blend |
+| `reverb_decay_seconds` | 0.3 to 12 s | Reverb decay |
+| `reverb_mix` | 0.0 to 1.0 | Reverb blend |
 
 The response contains the updated state. Invalid names, non-finite values, and out-of-range values are rejected without changing state. The engine converts dB to linear gain on the control thread, publishes the fixed-size values atomically, and ramps changes across an audio block to avoid a hard discontinuity. Controls persist with the rig for offline restart.
 
+## Switch an effect or operate the looper
+
+Each built-in effect is independently bypassable. `effect` is one of `gate`, `compressor`, `eq`, `chorus`, `delay`, or `reverb`.
+
+```json
+{"api":1,"id":"ui-7","type":"set_effect_bypass","payload":{"effect":"delay","bypassed":false}}
+{"api":1,"id":"ui-8","type":"looper_action","payload":{"action":"record"}}
+```
+
+Looper actions are `record`, `play`, `overdub`, and `stop`. The looper keeps up to 30 seconds of mono post-reverb audio in RAM. Its audio is intentionally not persisted: after a restart it reports `stopped` and begins with an empty loop.
+
+## Open the clean-input tuner
+
+```json
+{"api":1,"id":"ui-9","type":"set_tuner_enabled","payload":{"enabled":true}}
+```
+
+The tuner receives the input after the protective 30 Hz high-pass but before the gate, NAM models, effects, and global bypass. It does not mute or otherwise alter the guitar signal. Clients should disable it after closing their tuner view; the engine also disables it when restarted.
+
 ## Presets
 
-A preset stores both model paths, both slot bypass states, and every adjustable control. Hardware negotiation and the global emergency bypass are not part of a preset.
+A preset stores both model paths, both slot bypass states, each effect's on/off state, and every adjustable control. Hardware negotiation, the global emergency bypass, and in-memory looper audio are not part of a preset.
 
 ```json
 {"api":1,"id":"ui-8","type":"save_preset","payload":{"name":"Crunch"}}
@@ -97,10 +126,10 @@ The library is atomically persisted to `/var/lib/pedal/presets.json`. Deleting t
 ```
 
 ```json
-{"api":1,"id":"ui-7","type":"meters","payload":{"input_db":-18.4,"output_db":-20.1,"clipped":false,"cpu_percent":3.2,"xruns":0}}
+{"api":1,"id":"ui-7","type":"meters","payload":{"input_db":-18.4,"output_db":-20.1,"clipped":false,"cpu_percent":3.2,"xruns":0,"tuner_hz":82.4,"tuner_confidence":0.93}}
 ```
 
-Meters are display telemetry, not authoritative state. The Flutter client polls at 10 Hz, below the 20 Hz budget. Peaks and the clip flag cover the interval since the previous meter request; `xruns` is cumulative for the current engine process. Clients must tolerate missing snapshots and reconnect normally.
+Meters are display telemetry, not authoritative state. The Flutter client polls at 10 Hz, below the 20 Hz budget. Peaks and the clip flag cover the interval since the previous meter request; `xruns` is cumulative for the current engine process. `tuner_hz` and `tuner_confidence` are zero while the tuner is disabled or has no stable clean-input pitch. Clients must tolerate missing snapshots and reconnect normally.
 
 ## Render a hardware-free preview
 

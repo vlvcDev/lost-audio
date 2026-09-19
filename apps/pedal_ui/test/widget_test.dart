@@ -6,9 +6,10 @@ void main() {
   testWidgets('shows the disconnected rig shell', (tester) async {
     await tester.pumpWidget(const PedalApp());
 
-    expect(find.text('PEDAL'), findsNWidgets(2));
-    expect(find.text('AMP'), findsOneWidget);
-    expect(find.text('EMPTY'), findsNWidgets(2));
+    expect(find.text('PEDAL'), findsOneWidget);
+    expect(find.text('SIGNAL PATH'), findsOneWidget);
+    expect(find.text('NAM'), findsNWidgets(2));
+    expect(find.text('GATE'), findsOneWidget);
     expect(find.text('Waiting for engine'), findsOneWidget);
     expect(find.text('RECONNECT'), findsOneWidget);
     expect(find.text('TONES'), findsOneWidget);
@@ -185,6 +186,8 @@ Audio
       'clipped': true,
       'cpu_percent': 8.25,
       'xruns': 2,
+      'tuner_hz': 82.41,
+      'tuner_confidence': .91,
     });
 
     expect(meters.inputDb, -12.5);
@@ -192,6 +195,8 @@ Audio
     expect(meters.clipped, isTrue);
     expect(meters.cpuPercent, 8.25);
     expect(meters.xruns, 2);
+    expect(meters.tunerHz, 82.41);
+    expect(meters.tunerConfidence, .91);
   });
 
   test('preset summary describes its saved model chain', () {

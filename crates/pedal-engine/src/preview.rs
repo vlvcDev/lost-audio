@@ -3,6 +3,7 @@ use crate::dsp::{
     AmpControlProcessor, AmpParameters, AmpProcessor, BypassProcessor, MonoProcessor,
     PedalControlProcessor, PedalParameters, RealtimeTelemetry, SafetyProcessor, SerialProcessor,
 };
+use crate::effects::{EffectChainProcessor, EffectsParameters};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -57,11 +58,15 @@ pub fn render_source(
         state.amp_treble_db,
         state.amp_volume_db,
     ));
+    let effects_parameters = Arc::new(EffectsParameters::from_state(state));
     let pre = PedalControlProcessor::new(pre, pedal_parameters, BLOCK_FRAMES);
     let pre = BypassProcessor::new(pre, Arc::new(AtomicBool::new(state.pre_bypassed)));
     let amp = AmpControlProcessor::new(amp, amp_parameters, SAMPLE_RATE);
     let amp = BypassProcessor::new(amp, Arc::new(AtomicBool::new(state.amp_bypassed)));
     let chain = SerialProcessor::new(pre, amp);
+    // A preview starts with an empty in-memory loop; it still renders the
+    // rest of the board exactly as the live engine does.
+    let chain = EffectChainProcessor::new(chain, effects_parameters, SAMPLE_RATE, 30);
     let chain = BypassProcessor::new(chain, Arc::new(AtomicBool::new(state.bypassed)));
     let telemetry = Arc::new(RealtimeTelemetry::default());
     let mut processor = SafetyProcessor::new(chain, telemetry, SAMPLE_RATE);

@@ -41,7 +41,7 @@ The Rust process is the only owner of the audio device and DSP graph. Flutter is
 
 The audio callback may not allocate memory, read files, access SQLite or the network, take an unbounded lock, or log. Control changes are prepared off-thread and passed to the callback as fixed-size commands. Graph/model changes use a prepared graph swap at a buffer boundary.
 
-The current continuous path preallocates capture, playback, mono, and pedal dry-mix workspaces before streaming. Restored pedal and amp NAM models are loaded before the stream begins and moved exclusively onto the audio thread. The fixed order is pedal/pre NAM followed by amp NAM. Bypass and adjustable DSP values are shared atomically, so UI changes require no callback lock or allocation. dB conversion occurs on the control thread and gain changes ramp across one block. Each live model replacement is prepared outside the audio thread, then delivered through its own non-blocking single-slot mailbox for a boundary swap. A fixed 30 Hz high-pass filter precedes the controllable chain, and a zero-lookahead −1 dBFS safety limiter follows even global bypass. Peak, clip, CPU, and XRun telemetry use atomics and are read by the UI at 10 Hz.
+The current continuous path preallocates capture, playback, mono, pedal dry-mix, modulation, delay, reverb, tuner-history, and 30-second looper workspaces before streaming. Restored pedal and amp NAM models are loaded before the stream begins and moved exclusively onto the audio thread. The fixed order is clean tuner tap, gate, compressor, pedal/pre NAM, amp NAM, then three-band EQ, chorus, delay, reverb, and looper. The tuner is disabled unless its screen is open and reports pitch via atomics; it never changes the playable signal. Bypass and adjustable DSP values are shared atomically, so UI changes require no callback lock or allocation. Each live model replacement is prepared outside the audio thread, then delivered through its own non-blocking single-slot mailbox for a boundary swap. A fixed 30 Hz high-pass filter precedes the controllable chain, and a zero-lookahead −1 dBFS safety limiter follows even global bypass. Peak, clip, CPU, and XRun telemetry use atomics and are read by the UI at 10 Hz.
 
 The control socket is `/run/pedal/control.sock` in production and `/tmp/pedal-control.sock` during desktop development. UI meter polling runs at 10 Hz and is capped at 20 Hz.
 
@@ -90,12 +90,13 @@ Offline cold-boot acceptance criteria:
 ## Initial signal chain
 
 ```text
-Input trim -> DC/high-pass -> gate -> pedal drive -> pedal NAM -> dry/wet -> pedal level
-           -> amp NAM -> bass/mid/treble -> amp volume -> cabinet IR
-           -> modulation -> delay -> reverb -> output EQ -> limiter -> output
+Input trim -> DC/high-pass -> gate -> compressor -> pedal drive -> pedal NAM
+           -> dry/wet -> pedal level -> amp NAM -> bass/mid/treble -> amp volume
+           -> three-band EQ -> chorus -> delay -> reverb -> 30-second looper
+           -> limiter -> output
 ```
 
-V0 will first make slots bypassable and reorderable. Initial built-in effects are compressor, overdrive, three-band EQ, chorus, delay, and reverb. A tuner is part of the input utility stage.
+V0 ships with a fixed, practical order rather than arbitrary graph reordering. NAM slots and built-in gate, compressor, EQ, chorus, delay, and reverb pedals are independently bypassable. The looper is post-reverb, holds up to 30 seconds in RAM, and intentionally starts empty after a restart. A tuner is part of the input utility stage.
 
 ## Latency and reliability budgets
 

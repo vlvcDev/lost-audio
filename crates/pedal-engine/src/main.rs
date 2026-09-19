@@ -4,7 +4,9 @@ use pedal_engine::dsp::{
     PedalParameters, RealtimeTelemetry, SafetyProcessor, SerialProcessor, SwapMailbox,
     SwappableProcessor,
 };
+use pedal_engine::effects::{EffectChainProcessor, EffectsParameters, LooperMode};
 use pedal_engine::presets::PresetStore;
+use pedal_engine::tuner::{TunerParameters, TunerTapProcessor, TunerTelemetry};
 use pedal_engine::{API_VERSION, EngineState, Request, Response, handle_request, parse_and_handle};
 use std::env;
 use std::fs;
@@ -35,6 +37,8 @@ struct BypassFlags {
 struct DspParameters {
     pedal: Arc<PedalParameters>,
     amp: Arc<AmpParameters>,
+    effects: Arc<EffectsParameters>,
+    tuner: Arc<TunerParameters>,
 }
 
 #[derive(Clone)]
@@ -43,6 +47,7 @@ struct ControlContext {
     bypass_flags: Arc<BypassFlags>,
     dsp_parameters: Arc<DspParameters>,
     telemetry: Arc<RealtimeTelemetry>,
+    tuner_telemetry: Arc<TunerTelemetry>,
     model_mailboxes: Arc<ModelMailboxes>,
     presets: Arc<Mutex<PresetStore>>,
     state_path: PathBuf,
@@ -66,6 +71,8 @@ impl DspParameters {
                 state.amp_treble_db,
                 state.amp_volume_db,
             )),
+            effects: Arc::new(EffectsParameters::from_state(state)),
+            tuner: Arc::new(TunerParameters::new(state.tuner_enabled)),
         }
     }
 
@@ -78,6 +85,8 @@ impl DspParameters {
             state.amp_treble_db,
             state.amp_volume_db,
         );
+        self.effects.update(state);
+        self.tuner.update(state.tuner_enabled);
     }
 }
 
@@ -101,6 +110,10 @@ fn main() -> std::io::Result<()> {
     prepare_socket(&socket_path)?;
     let listener = UnixListener::bind(&socket_path)?;
     let mut restored_state = pedal_engine::state::load_or_default(&state_path);
+    // Loop audio is deliberately in-memory only. Never report a non-existent
+    // loop as playing after a restart.
+    restored_state.looper_mode = LooperMode::Stopped.as_state().to_owned();
+    restored_state.tuner_enabled = false;
     let restored_presets = pedal_engine::presets::load_or_default(&preset_path);
     if restored_state
         .preset_id
@@ -129,12 +142,14 @@ fn main() -> std::io::Result<()> {
         amp: Arc::new(SwapMailbox::default()),
     });
     let telemetry = Arc::new(RealtimeTelemetry::default());
+    let tuner_telemetry = Arc::new(TunerTelemetry::default());
     if audio_is_enabled() {
         spawn_audio_worker(
             Arc::clone(&state),
             Arc::clone(&bypass_flags),
             Arc::clone(&dsp_parameters),
             Arc::clone(&telemetry),
+            Arc::clone(&tuner_telemetry),
             Arc::clone(&model_mailboxes),
             &state_path,
         );
@@ -146,6 +161,7 @@ fn main() -> std::io::Result<()> {
         bypass_flags,
         dsp_parameters,
         telemetry,
+        tuner_telemetry,
         model_mailboxes,
         presets,
         state_path,
@@ -194,7 +210,7 @@ fn serve_client(stream: UnixStream, context: ControlContext) -> std::io::Result<
         let response = if let Some(request) = special_request
             && request.message_type == "get_meters"
         {
-            meters_response(request.id, &context.telemetry)
+            meters_response(request.id, &context.telemetry, &context.tuner_telemetry)
         } else if let Some(request) = serde_json::from_str::<Request>(&line)
             .ok()
             .filter(|request| request.api == API_VERSION)
@@ -284,6 +300,7 @@ fn spawn_audio_worker(
     bypass_flags: Arc<BypassFlags>,
     dsp_parameters: Arc<DspParameters>,
     telemetry: Arc<RealtimeTelemetry>,
+    tuner_telemetry: Arc<TunerTelemetry>,
     model_mailboxes: Arc<ModelMailboxes>,
     state_path: &Path,
 ) {
@@ -296,6 +313,7 @@ fn spawn_audio_worker(
                 bypass_flags,
                 dsp_parameters,
                 telemetry,
+                tuner_telemetry,
                 model_mailboxes,
                 &state_path,
             ) {
@@ -310,6 +328,7 @@ fn run_audio_worker(
     bypass_flags: Arc<BypassFlags>,
     dsp_parameters: Arc<DspParameters>,
     telemetry: Arc<RealtimeTelemetry>,
+    tuner_telemetry: Arc<TunerTelemetry>,
     model_mailboxes: Arc<ModelMailboxes>,
     state_path: &Path,
 ) -> Result<(), String> {
@@ -380,7 +399,19 @@ fn run_audio_worker(
         AmpControlProcessor::new(amp, Arc::clone(&dsp_parameters.amp), negotiated.sample_rate);
     let amp = BypassProcessor::new(amp, Arc::clone(&bypass_flags.amp));
     let chain = SerialProcessor::new(pre, amp);
+    let chain = EffectChainProcessor::new(
+        chain,
+        Arc::clone(&dsp_parameters.effects),
+        negotiated.sample_rate,
+        30,
+    );
     let chain = BypassProcessor::new(chain, Arc::clone(&bypass_flags.all));
+    let chain = TunerTapProcessor::new(
+        chain,
+        Arc::clone(&dsp_parameters.tuner),
+        tuner_telemetry,
+        negotiated.sample_rate,
+    );
     let mut processor = SafetyProcessor::new(chain, Arc::clone(&telemetry), negotiated.sample_rate);
     eprintln!(
         "audio ready on {} at {} Hz / {} frames",
@@ -539,6 +570,76 @@ fn handle_control_line(
         return state_response(request.id, state);
     }
 
+    if request.message_type == "set_effect_bypass" {
+        let Some(effect) = request
+            .payload
+            .get("effect")
+            .and_then(serde_json::Value::as_str)
+        else {
+            return control_error(request.id, "invalid_payload", "effect is required");
+        };
+        let Some(bypassed) = request
+            .payload
+            .get("bypassed")
+            .and_then(serde_json::Value::as_bool)
+        else {
+            return control_error(
+                request.id,
+                "invalid_payload",
+                "set_effect_bypass requires a boolean 'bypassed' field",
+            );
+        };
+        let enabled = !bypassed;
+        match effect {
+            "gate" => state.gate_enabled = enabled,
+            "compressor" => state.compressor_enabled = enabled,
+            "eq" => state.eq_enabled = enabled,
+            "chorus" => state.chorus_enabled = enabled,
+            "delay" => state.delay_enabled = enabled,
+            "reverb" => state.reverb_enabled = enabled,
+            _ => return control_error(request.id, "invalid_effect", "unknown effect"),
+        }
+        mark_preset_dirty(state);
+        return state_response(request.id, state);
+    }
+
+    if request.message_type == "set_tuner_enabled" {
+        let Some(enabled) = request
+            .payload
+            .get("enabled")
+            .and_then(serde_json::Value::as_bool)
+        else {
+            return control_error(
+                request.id,
+                "invalid_payload",
+                "set_tuner_enabled requires a boolean 'enabled' field",
+            );
+        };
+        state.tuner_enabled = enabled;
+        return state_response(request.id, state);
+    }
+
+    if request.message_type == "looper_action" {
+        let Some(action) = request
+            .payload
+            .get("action")
+            .and_then(serde_json::Value::as_str)
+        else {
+            return control_error(request.id, "invalid_payload", "looper action is required");
+        };
+        let mode = match action {
+            "record" => LooperMode::Recording,
+            "play" => LooperMode::Playing,
+            "overdub" => LooperMode::Overdubbing,
+            "stop" | "clear" => LooperMode::Stopped,
+            _ => {
+                return control_error(request.id, "invalid_looper_action", "unknown looper action");
+            }
+        };
+        state.looper_mode = mode.as_state().to_owned();
+        return state_response(request.id, state);
+    }
+
     if request.message_type == "clear_model" {
         let Some(slot) = valid_slot(&request) else {
             return control_error(request.id, "invalid_slot", "slot must be 'pre' or 'amp'");
@@ -693,6 +794,20 @@ fn set_control(state: &mut EngineState, control: &str, value: f32) -> Result<(),
         "amp_mid_db" => (&mut state.amp_mid_db, -12.0, 12.0),
         "amp_treble_db" => (&mut state.amp_treble_db, -12.0, 12.0),
         "amp_volume_db" => (&mut state.amp_volume_db, -24.0, 12.0),
+        "gate_threshold_db" => (&mut state.gate_threshold_db, -80.0, -10.0),
+        "compressor_threshold_db" => (&mut state.compressor_threshold_db, -48.0, 0.0),
+        "compressor_ratio" => (&mut state.compressor_ratio, 1.0, 20.0),
+        "eq_low_db" => (&mut state.eq_low_db, -12.0, 12.0),
+        "eq_mid_db" => (&mut state.eq_mid_db, -12.0, 12.0),
+        "eq_high_db" => (&mut state.eq_high_db, -12.0, 12.0),
+        "chorus_rate_hz" => (&mut state.chorus_rate_hz, 0.05, 8.0),
+        "chorus_depth" => (&mut state.chorus_depth, 0.0, 1.0),
+        "chorus_mix" => (&mut state.chorus_mix, 0.0, 1.0),
+        "delay_time_ms" => (&mut state.delay_time_ms, 20.0, 1_800.0),
+        "delay_feedback" => (&mut state.delay_feedback, 0.0, 0.92),
+        "delay_mix" => (&mut state.delay_mix, 0.0, 1.0),
+        "reverb_decay_seconds" => (&mut state.reverb_decay_seconds, 0.3, 12.0),
+        "reverb_mix" => (&mut state.reverb_mix, 0.0, 1.0),
         _ => return Err("unknown control"),
     };
     if !(minimum..=maximum).contains(&value) {
@@ -736,8 +851,13 @@ fn presets_response(id: String, presets: &PresetStore) -> Response {
     }
 }
 
-fn meters_response(id: String, telemetry: &RealtimeTelemetry) -> Response {
+fn meters_response(
+    id: String,
+    telemetry: &RealtimeTelemetry,
+    tuner_telemetry: &TunerTelemetry,
+) -> Response {
     let snapshot = telemetry.snapshot();
+    let (tuner_hz, tuner_confidence) = tuner_telemetry.snapshot();
     let to_db = |peak: f32| 20.0 * peak.max(0.000_001).log10();
     Response {
         api: API_VERSION,
@@ -749,6 +869,8 @@ fn meters_response(id: String, telemetry: &RealtimeTelemetry) -> Response {
             "clipped": snapshot.clipped,
             "cpu_percent": snapshot.cpu_percent,
             "xruns": snapshot.xruns,
+            "tuner_hz": tuner_hz,
+            "tuner_confidence": tuner_confidence,
         }),
     }
 }
@@ -910,13 +1032,45 @@ mod tests {
     }
 
     #[test]
+    fn effect_switches_controls_and_looper_commands_are_authoritative() {
+        let mailboxes = mailboxes();
+        let mut state = EngineState::default();
+        let bypass = r#"{"api":1,"id":"chorus","type":"set_effect_bypass","payload":{"effect":"chorus","bypassed":false}}"#;
+        let response = handle(&mut state, bypass, &mailboxes);
+        assert_eq!(response.message_type, "state");
+        assert!(state.chorus_enabled);
+
+        let rate = r#"{"api":1,"id":"rate","type":"set_control","payload":{"control":"chorus_rate_hz","value":2.5}}"#;
+        handle(&mut state, rate, &mailboxes);
+        assert_eq!(state.chorus_rate_hz, 2.5);
+
+        let record =
+            r#"{"api":1,"id":"loop","type":"looper_action","payload":{"action":"record"}}"#;
+        let response = handle(&mut state, record, &mailboxes);
+        assert_eq!(response.payload["looper_mode"], "recording");
+        assert_eq!(state.looper_mode, "recording");
+    }
+
+    #[test]
+    fn tuner_can_be_enabled_without_changing_the_saved_rig() {
+        let mailboxes = mailboxes();
+        let mut state = EngineState::default();
+        let request =
+            r#"{"api":1,"id":"tuner","type":"set_tuner_enabled","payload":{"enabled":true}}"#;
+        let response = handle(&mut state, request, &mailboxes);
+        assert_eq!(response.message_type, "state");
+        assert!(state.tuner_enabled);
+    }
+
+    #[test]
     fn meter_response_reports_peaks_clipping_cpu_and_xruns() {
         let telemetry = RealtimeTelemetry::default();
+        let tuner_telemetry = TunerTelemetry::default();
         telemetry.record_levels(0.5, 0.25, true);
         telemetry.record_cpu_percent(7.5);
         telemetry.record_xrun();
 
-        let response = meters_response("meters-1".to_owned(), &telemetry);
+        let response = meters_response("meters-1".to_owned(), &telemetry, &tuner_telemetry);
 
         assert_eq!(response.message_type, "meters");
         assert!((response.payload["input_db"].as_f64().expect("input") + 6.0206).abs() < 0.001);

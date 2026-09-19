@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -82,6 +83,15 @@ class _RigScreenState extends State<RigScreen> {
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                   const Spacer(),
+                  IconButton(
+                    tooltip: 'Tuner',
+                    onPressed: _engine.connected ? _showTuner : null,
+                    icon: Icon(
+                      Icons.tune,
+                      color:
+                          _engine.tunerEnabled ? const Color(0xffb8ff79) : null,
+                    ),
+                  ),
                   TextButton.icon(
                     onPressed: _showTone3000,
                     style: TextButton.styleFrom(
@@ -139,39 +149,16 @@ class _RigScreenState extends State<RigScreen> {
               ),
               const SizedBox(height: 6),
               _MeterStrip(snapshot: _meters),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SlotControl(
-                      label: 'PEDAL',
-                      icon: Icons.auto_fix_high,
-                      loaded: _engine.preModel != null,
-                      bypassed: _engine.preBypassed,
-                      enabled: _engine.connected,
-                      onOpen: () => _showSlotControls(ModelSlot.pre),
-                      onToggle: () => _toggleSlot(
-                        ModelSlot.pre,
-                        !_engine.preBypassed,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _SlotControl(
-                      label: 'AMP',
-                      icon: Icons.speaker,
-                      loaded: _engine.model != null,
-                      bypassed: _engine.ampBypassed,
-                      enabled: _engine.connected,
-                      onOpen: () => _showSlotControls(ModelSlot.amp),
-                      onToggle: () => _toggleSlot(
-                        ModelSlot.amp,
-                        !_engine.ampBypassed,
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              Expanded(
+                child: Pedalboard(
+                  snapshot: _engine,
+                  onSlotOpen: _showSlotControls,
+                  onSlotToggle: (slot, bypassed) => _toggleSlot(slot, bypassed),
+                  onEffectOpen: _showEffectControls,
+                  onEffectToggle: _toggleEffect,
+                  onLooperOpen: _showLooperControls,
+                ),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -574,6 +561,57 @@ class _RigScreenState extends State<RigScreen> {
     );
   }
 
+  Future<void> _showTuner() async {
+    try {
+      await _client.setTunerEnabled(true);
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => FractionallySizedBox(
+          heightFactor: 0.9,
+          child: TunerSheet(meters: _client.meters),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      try {
+        await _client.setTunerEnabled(false);
+      } catch (_) {
+        // The next engine connection starts with the tuner disabled.
+      }
+    }
+  }
+
+  void _showEffectControls(EffectKind effect) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.82,
+        child: EffectControlsSheet(
+          effect: effect,
+          snapshot: _engine,
+          onChanged: _client.setControl,
+        ),
+      ),
+    );
+  }
+
+  void _showLooperControls() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => LooperControlsSheet(
+        mode: _engine.looperMode,
+        onAction: _client.looperAction,
+      ),
+    );
+  }
+
   Future<void> _clearSlot(ModelSlot slot) async {
     final label = slot == ModelSlot.pre ? 'pedal' : 'amp';
     final confirmed = await showDialog<bool>(
@@ -616,6 +654,291 @@ class _RigScreenState extends State<RigScreen> {
         );
       }
     }
+  }
+
+  Future<void> _toggleEffect(EffectKind effect, bool bypassed) async {
+    try {
+      await _client.setEffectBypass(effect, bypassed);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    }
+  }
+}
+
+enum EffectKind { gate, compressor, eq, chorus, delay, reverb }
+
+extension EffectKindDetails on EffectKind {
+  String get wireName => name;
+
+  String get label => switch (this) {
+        EffectKind.gate => 'GATE',
+        EffectKind.compressor => 'COMP',
+        EffectKind.eq => 'EQ',
+        EffectKind.chorus => 'CHORUS',
+        EffectKind.delay => 'DELAY',
+        EffectKind.reverb => 'REVERB',
+      };
+
+  IconData get icon => switch (this) {
+        EffectKind.gate => Icons.graphic_eq,
+        EffectKind.compressor => Icons.compress,
+        EffectKind.eq => Icons.equalizer,
+        EffectKind.chorus => Icons.waves,
+        EffectKind.delay => Icons.repeat,
+        EffectKind.reverb => Icons.blur_on,
+      };
+
+  Color get color => switch (this) {
+        EffectKind.gate => const Color(0xff6874c9),
+        EffectKind.compressor => const Color(0xffdb5c8d),
+        EffectKind.eq => const Color(0xff41a99a),
+        EffectKind.chorus => const Color(0xff4267bf),
+        EffectKind.delay => const Color(0xffd68742),
+        EffectKind.reverb => const Color(0xff9567c7),
+      };
+}
+
+class Pedalboard extends StatelessWidget {
+  const Pedalboard({
+    required this.snapshot,
+    required this.onSlotOpen,
+    required this.onSlotToggle,
+    required this.onEffectOpen,
+    required this.onEffectToggle,
+    required this.onLooperOpen,
+    super.key,
+  });
+
+  final EngineSnapshot snapshot;
+  final ValueChanged<ModelSlot> onSlotOpen;
+  final Future<void> Function(ModelSlot, bool) onSlotToggle;
+  final ValueChanged<EffectKind> onEffectOpen;
+  final Future<void> Function(EffectKind, bool) onEffectToggle;
+  final VoidCallback onLooperOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final postNamEffects = [
+      EffectKind.eq,
+      EffectKind.chorus,
+      EffectKind.delay,
+      EffectKind.reverb,
+    ];
+    _PedalTile effectTile(EffectKind effect) => _PedalTile(
+          label: effect.label,
+          sublabel: snapshot.effectEnabled(effect) ? 'ON' : 'BYPASS',
+          icon: effect.icon,
+          color: effect.color,
+          active: snapshot.effectEnabled(effect),
+          disabled: !snapshot.connected,
+          onTap: () => onEffectOpen(effect),
+          onFootswitch: () =>
+              onEffectToggle(effect, snapshot.effectEnabled(effect)),
+        );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xff171330),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xff564c81), width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 7)],
+      ),
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 7, 12, 2),
+            child: Row(
+              children: [
+                Icon(Icons.cable, size: 14, color: Color(0xffa6ffdd)),
+                SizedBox(width: 5),
+                Text('SIGNAL PATH',
+                    style: TextStyle(
+                      color: Color(0xffa6ffdd),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.4,
+                      fontSize: 11,
+                    )),
+                Spacer(),
+                Text('TAP PEDAL TO EDIT',
+                    style: TextStyle(color: Color(0xff9a94bd), fontSize: 10)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(9, 3, 9, 8),
+              children: [
+                effectTile(EffectKind.gate),
+                const _SignalArrow(),
+                effectTile(EffectKind.compressor),
+                const _SignalArrow(),
+                _PedalTile(
+                  label: 'NAM',
+                  sublabel: 'DRIVE',
+                  icon: Icons.bolt,
+                  color: const Color(0xffc15062),
+                  active: snapshot.preModel != null && !snapshot.preBypassed,
+                  disabled: !snapshot.connected,
+                  onTap: () => onSlotOpen(ModelSlot.pre),
+                  onFootswitch: () =>
+                      onSlotToggle(ModelSlot.pre, !snapshot.preBypassed),
+                ),
+                const _SignalArrow(),
+                _PedalTile(
+                  label: 'NAM',
+                  sublabel: 'AMP',
+                  icon: Icons.speaker,
+                  color: const Color(0xffd08a3c),
+                  active: snapshot.model != null && !snapshot.ampBypassed,
+                  disabled: !snapshot.connected,
+                  onTap: () => onSlotOpen(ModelSlot.amp),
+                  onFootswitch: () =>
+                      onSlotToggle(ModelSlot.amp, !snapshot.ampBypassed),
+                ),
+                for (final effect in postNamEffects) ...[
+                  const _SignalArrow(),
+                  effectTile(effect),
+                ],
+                const _SignalArrow(),
+                _PedalTile(
+                  label: 'LOOPER',
+                  sublabel: snapshot.looperMode.toUpperCase(),
+                  icon: Icons.loop,
+                  color: const Color(0xff49b36b),
+                  active: snapshot.looperMode != 'stopped',
+                  disabled: !snapshot.connected,
+                  onTap: onLooperOpen,
+                  onFootswitch: onLooperOpen,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignalArrow extends StatelessWidget {
+  const _SignalArrow();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+        width: 18,
+        child: Icon(Icons.chevron_right, size: 18, color: Color(0xff6d6592)),
+      );
+}
+
+class _PedalTile extends StatelessWidget {
+  const _PedalTile({
+    required this.label,
+    required this.sublabel,
+    required this.icon,
+    required this.color,
+    required this.active,
+    required this.disabled,
+    required this.onTap,
+    required this.onFootswitch,
+  });
+
+  final String label;
+  final String sublabel;
+  final IconData icon;
+  final Color color;
+  final bool active;
+  final bool disabled;
+  final VoidCallback onTap;
+  final VoidCallback onFootswitch;
+
+  @override
+  Widget build(BuildContext context) {
+    final face = active ? color : const Color(0xff3c3858);
+    return SizedBox(
+      width: 86,
+      child: Opacity(
+        opacity: disabled ? 0.5 : 1,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(9),
+            onTap: disabled ? null : onTap,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 3),
+              padding: const EdgeInsets.fromLTRB(7, 7, 7, 6),
+              decoration: BoxDecoration(
+                color: face,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                    color: active ? Colors.white70 : const Color(0xff766d99)),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        active ? color.withValues(alpha: 0.55) : Colors.black54,
+                    blurRadius: active ? 9 : 3,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, size: 17, color: Colors.white),
+                      const Spacer(),
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: active
+                              ? const Color(0xffb8ff79)
+                              : const Color(0xff27243b),
+                          boxShadow: active
+                              ? const [
+                                  BoxShadow(
+                                      color: Color(0xffb8ff79), blurRadius: 5)
+                                ]
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 12)),
+                  Text(sublabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 9, letterSpacing: 0.7)),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: disabled ? null : onFootswitch,
+                    child: Container(
+                      height: 20,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xffded9c4),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xff4a4557)),
+                      ),
+                      child: const Icon(Icons.circle,
+                          size: 11, color: Color(0xff504b5d)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -943,6 +1266,444 @@ class _SlotControlsSheetState extends State<SlotControlsSheet> {
       ),
     );
   }
+}
+
+class EffectControlsSheet extends StatefulWidget {
+  const EffectControlsSheet({
+    required this.effect,
+    required this.snapshot,
+    required this.onChanged,
+    super.key,
+  });
+
+  final EffectKind effect;
+  final EngineSnapshot snapshot;
+  final Future<void> Function(String, double) onChanged;
+
+  @override
+  State<EffectControlsSheet> createState() => _EffectControlsSheetState();
+}
+
+class _EffectControlsSheetState extends State<EffectControlsSheet> {
+  late final Map<String, double> _values;
+
+  @override
+  void initState() {
+    super.initState();
+    _values = widget.snapshot.effectControls(widget.effect);
+  }
+
+  List<_ControlDefinition> get _controls => switch (widget.effect) {
+        EffectKind.gate => const [
+            _ControlDefinition(
+                'gate_threshold_db', 'THRESHOLD', -80, -10, 70, 'dB'),
+          ],
+        EffectKind.compressor => const [
+            _ControlDefinition(
+                'compressor_threshold_db', 'THRESHOLD', -48, 0, 48, 'dB'),
+            _ControlDefinition('compressor_ratio', 'RATIO', 1, 20, 38, ':1'),
+          ],
+        EffectKind.eq => const [
+            _ControlDefinition('eq_low_db', 'LOW', -12, 12, 48, 'dB'),
+            _ControlDefinition('eq_mid_db', 'MID', -12, 12, 48, 'dB'),
+            _ControlDefinition('eq_high_db', 'HIGH', -12, 12, 48, 'dB'),
+          ],
+        EffectKind.chorus => const [
+            _ControlDefinition('chorus_rate_hz', 'RATE', 0.05, 8, 40, 'Hz'),
+            _ControlDefinition('chorus_depth', 'DEPTH', 0, 1, 20, '%',
+                percent: true),
+            _ControlDefinition('chorus_mix', 'MIX', 0, 1, 20, '%',
+                percent: true),
+          ],
+        EffectKind.delay => const [
+            _ControlDefinition('delay_time_ms', 'TIME', 20, 1800, 89, 'ms'),
+            _ControlDefinition('delay_feedback', 'FEEDBACK', 0, .92, 23, '%',
+                percent: true),
+            _ControlDefinition('delay_mix', 'MIX', 0, 1, 20, '%',
+                percent: true),
+          ],
+        EffectKind.reverb => const [
+            _ControlDefinition(
+                'reverb_decay_seconds', 'DECAY', .3, 12, 47, 's'),
+            _ControlDefinition('reverb_mix', 'MIX', 0, 1, 20, '%',
+                percent: true),
+          ],
+      };
+
+  Future<void> _commit(_ControlDefinition control, double value) async {
+    try {
+      await widget.onChanged(control.keyName, value);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = widget.effect;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(detail.icon, color: detail.color),
+                const SizedBox(width: 8),
+                Text('${detail.label} PEDAL',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close)),
+              ],
+            ),
+            const Text('Settings are saved with your preset.',
+                style: TextStyle(color: Color(0xffaaa5c4))),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final control in _controls)
+                    _ControlSlider(
+                      definition: control,
+                      value: _values[control.keyName]!,
+                      onChanged: (value) =>
+                          setState(() => _values[control.keyName] = value),
+                      onChangeEnd: (value) => _commit(control, value),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LooperControlsSheet extends StatelessWidget {
+  const LooperControlsSheet(
+      {required this.mode, required this.onAction, super.key});
+
+  final String mode;
+  final Future<void> Function(String) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    Future<void> choose(String action) async {
+      try {
+        await onAction(action);
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('$error')));
+        }
+      }
+    }
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              const Icon(Icons.loop, color: Color(0xffb8ff79)),
+              const SizedBox(width: 8),
+              const Text('30 SECOND LOOPER',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+              const Spacer(),
+              IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close)),
+            ]),
+            Text(
+                'Now: ${mode.toUpperCase()}  •  loop audio clears after a restart',
+                style: const TextStyle(color: Color(0xffaaa5c4))),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.icon(
+                    onPressed: () => choose('record'),
+                    icon: const Icon(Icons.fiber_manual_record),
+                    label: const Text('RECORD')),
+                FilledButton.tonalIcon(
+                    onPressed: () => choose('play'),
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('PLAY')),
+                FilledButton.tonalIcon(
+                    onPressed: () => choose('overdub'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('OVERDUB')),
+                OutlinedButton.icon(
+                    onPressed: () => choose('stop'),
+                    icon: const Icon(Icons.stop),
+                    label: const Text('STOP')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TunerSheet extends StatefulWidget {
+  const TunerSheet({required this.meters, super.key});
+
+  final Stream<MeterSnapshot> meters;
+
+  @override
+  State<TunerSheet> createState() => _TunerSheetState();
+}
+
+class _TunerSheetState extends State<TunerSheet> {
+  _Tuning _tuning = _tunings.first;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: StreamBuilder<MeterSnapshot>(
+        stream: widget.meters,
+        initialData: const MeterSnapshot.silent(),
+        builder: (context, snapshot) {
+          final reading = _TunerReading.fromMeter(snapshot.data!, _tuning);
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.tune, color: Color(0xffb8ff79)),
+                    const SizedBox(width: 8),
+                    const Text('CLEAN INPUT TUNER',
+                        style: TextStyle(
+                            fontSize: 19, fontWeight: FontWeight.w900)),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Close tuner',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const Text(
+                    'Listens before NAM and effects. Your sound stays unchanged.',
+                    style: TextStyle(color: Color(0xffaaa5c4))),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff171330),
+                    borderRadius: BorderRadius.circular(14),
+                    border:
+                        Border.all(color: const Color(0xff564c81), width: 2),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(reading.note ?? '—',
+                          style: const TextStyle(
+                            fontSize: 55,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xfff2eedf),
+                          )),
+                      const SizedBox(height: 6),
+                      Text(
+                        reading.note == null
+                            ? 'PLAY ONE STRING'
+                            : '${reading.frequency.toStringAsFixed(1)} Hz  •  ${reading.cents >= 0 ? '+' : ''}${reading.cents.round()} cents',
+                        style: const TextStyle(
+                          color: Color(0xffb8ff79),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _TunerNeedle(
+                          cents: reading.cents,
+                          hasSignal: reading.note != null),
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [
+                          Text('FLAT',
+                              style: TextStyle(
+                                  fontSize: 10, color: Color(0xffaaa5c4))),
+                          Text('IN TUNE',
+                              style: TextStyle(
+                                  fontSize: 10, color: Color(0xffaaa5c4))),
+                          Text('SHARP',
+                              style: TextStyle(
+                                  fontSize: 10, color: Color(0xffaaa5c4))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text('TUNING',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    for (final tuning in _tunings)
+                      ChoiceChip(
+                        label: Text(tuning.name),
+                        selected: tuning == _tuning,
+                        onSelected: (_) => setState(() => _tuning = tuning),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _tuning.notes.join('  '),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xffa6ffdd),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TunerNeedle extends StatelessWidget {
+  const _TunerNeedle({required this.cents, required this.hasSignal});
+
+  final double cents;
+  final bool hasSignal;
+
+  @override
+  Widget build(BuildContext context) {
+    final x = hasSignal ? (cents.clamp(-50, 50) / 50).toDouble() : 0.0;
+    final inTune = hasSignal && cents.abs() <= 5;
+    return SizedBox(
+      height: 24,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+              height: 4,
+              decoration: BoxDecoration(
+                  color: const Color(0xff504a70),
+                  borderRadius: BorderRadius.circular(4))),
+          Container(width: 2, height: 18, color: const Color(0xfff2eedf)),
+          Align(
+            alignment: Alignment(x, 0),
+            child: Container(
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                color:
+                    inTune ? const Color(0xffb8ff79) : const Color(0xffffc45e),
+                shape: BoxShape.circle,
+                boxShadow: hasSignal
+                    ? [
+                        BoxShadow(
+                            color: inTune
+                                ? const Color(0xffb8ff79)
+                                : const Color(0xffffc45e),
+                            blurRadius: 8)
+                      ]
+                    : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Tuning {
+  const _Tuning(this.name, this.notes);
+
+  final String name;
+  final List<String> notes;
+}
+
+const _tunings = [
+  _Tuning('Standard', ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  _Tuning('Drop D', ['D2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  _Tuning('D Standard', ['D2', 'G2', 'C3', 'F♯3', 'A3', 'D4']),
+  _Tuning('Drop C', ['C2', 'G2', 'C3', 'F3', 'A3', 'D4']),
+  _Tuning('Open G', ['D2', 'G2', 'D3', 'G3', 'B3', 'D4']),
+  _Tuning('Open D', ['D2', 'A2', 'D3', 'F♯3', 'A3', 'D4']),
+];
+
+class _TunerReading {
+  const _TunerReading(
+      {required this.frequency, required this.cents, this.note});
+
+  factory _TunerReading.fromMeter(MeterSnapshot meter, _Tuning tuning) {
+    if (meter.tunerHz <= 0 || meter.tunerConfidence < .55) {
+      return const _TunerReading(frequency: 0, cents: 0);
+    }
+    String? closest;
+    var closestCents = double.infinity;
+    for (final note in tuning.notes) {
+      final cents =
+          1200 * math.log(meter.tunerHz / _noteFrequency(note)) / math.ln2;
+      if (cents.abs() < closestCents.abs()) {
+        closest = note;
+        closestCents = cents;
+      }
+    }
+    return _TunerReading(
+      frequency: meter.tunerHz,
+      cents: closestCents,
+      note: closest,
+    );
+  }
+
+  final double frequency;
+  final double cents;
+  final String? note;
+}
+
+double _noteFrequency(String note) {
+  final normalized = note.replaceAll('♯', '#');
+  final octave = int.parse(normalized.substring(normalized.length - 1));
+  final pitch = normalized.substring(0, normalized.length - 1);
+  const semitones = {
+    'C': 0,
+    'C#': 1,
+    'D': 2,
+    'D#': 3,
+    'E': 4,
+    'F': 5,
+    'F#': 6,
+    'G': 7,
+    'G#': 8,
+    'A': 9,
+    'A#': 10,
+    'B': 11,
+  };
+  final midi = (octave + 1) * 12 + semitones[pitch]!;
+  return 440 * math.pow(2, (midi - 69) / 12).toDouble();
 }
 
 class _ControlDefinition {
@@ -1506,83 +2267,6 @@ class _LibraryMessage extends StatelessWidget {
   }
 }
 
-class _SlotControl extends StatelessWidget {
-  const _SlotControl({
-    required this.label,
-    required this.icon,
-    required this.loaded,
-    required this.bypassed,
-    required this.enabled,
-    required this.onOpen,
-    required this.onToggle,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool loaded;
-  final bool bypassed;
-  final bool enabled;
-  final VoidCallback onOpen;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final active = loaded && !bypassed;
-    final status = !loaded
-        ? 'EMPTY'
-        : bypassed
-            ? 'BYPASSED'
-            : 'ACTIVE';
-
-    return SizedBox(
-      height: 62,
-      child: Material(
-        color: active ? colors.primaryContainer : colors.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: enabled && loaded ? onOpen : null,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 12, right: 4),
-            child: Row(
-              children: [
-                Icon(icon, color: active ? colors.primary : colors.outline),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(label,
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text(status,
-                          style: Theme.of(context).textTheme.labelSmall),
-                    ],
-                  ),
-                ),
-                if (loaded)
-                  IconButton(
-                    tooltip: bypassed
-                        ? 'Engage ${label.toLowerCase()}'
-                        : 'Bypass ${label.toLowerCase()}',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: enabled ? onToggle : null,
-                    icon: Icon(
-                      Icons.power_settings_new,
-                      size: 20,
-                      color: active ? colors.primary : colors.outline,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _StatusDot extends StatelessWidget {
   const _StatusDot({required this.connected});
 
@@ -1676,6 +2360,8 @@ class MeterSnapshot {
     required this.clipped,
     required this.cpuPercent,
     required this.xruns,
+    required this.tunerHz,
+    required this.tunerConfidence,
   });
 
   const MeterSnapshot.silent()
@@ -1683,7 +2369,9 @@ class MeterSnapshot {
         outputDb = -120,
         clipped = false,
         cpuPercent = 0,
-        xruns = 0;
+        xruns = 0,
+        tunerHz = 0,
+        tunerConfidence = 0;
 
   factory MeterSnapshot.fromJson(Map<String, dynamic> json) => MeterSnapshot(
         inputDb: (json['input_db'] as num?)?.toDouble() ?? -120,
@@ -1691,6 +2379,8 @@ class MeterSnapshot {
         clipped: json['clipped'] as bool? ?? false,
         cpuPercent: (json['cpu_percent'] as num?)?.toDouble() ?? 0,
         xruns: json['xruns'] as int? ?? 0,
+        tunerHz: (json['tuner_hz'] as num?)?.toDouble() ?? 0,
+        tunerConfidence: (json['tuner_confidence'] as num?)?.toDouble() ?? 0,
       );
 
   final double inputDb;
@@ -1698,6 +2388,8 @@ class MeterSnapshot {
   final bool clipped;
   final double cpuPercent;
   final int xruns;
+  final double tunerHz;
+  final double tunerConfidence;
 }
 
 class EngineSnapshot {
@@ -1718,6 +2410,28 @@ class EngineSnapshot {
     required this.ampMidDb,
     required this.ampTrebleDb,
     required this.ampVolumeDb,
+    required this.gateEnabled,
+    required this.gateThresholdDb,
+    required this.compressorEnabled,
+    required this.compressorThresholdDb,
+    required this.compressorRatio,
+    required this.eqEnabled,
+    required this.eqLowDb,
+    required this.eqMidDb,
+    required this.eqHighDb,
+    required this.chorusEnabled,
+    required this.chorusRateHz,
+    required this.chorusDepth,
+    required this.chorusMix,
+    required this.delayEnabled,
+    required this.delayTimeMs,
+    required this.delayFeedback,
+    required this.delayMix,
+    required this.reverbEnabled,
+    required this.reverbDecaySeconds,
+    required this.reverbMix,
+    required this.looperMode,
+    required this.tunerEnabled,
     required this.sampleRate,
     required this.bufferFrames,
   });
@@ -1739,6 +2453,28 @@ class EngineSnapshot {
         ampMidDb = 0,
         ampTrebleDb = 0,
         ampVolumeDb = 0,
+        gateEnabled = false,
+        gateThresholdDb = -55,
+        compressorEnabled = false,
+        compressorThresholdDb = -18,
+        compressorRatio = 3,
+        eqEnabled = false,
+        eqLowDb = 0,
+        eqMidDb = 0,
+        eqHighDb = 0,
+        chorusEnabled = false,
+        chorusRateHz = .8,
+        chorusDepth = .5,
+        chorusMix = .35,
+        delayEnabled = false,
+        delayTimeMs = 360,
+        delayFeedback = .35,
+        delayMix = .25,
+        reverbEnabled = false,
+        reverbDecaySeconds = 2.5,
+        reverbMix = .25,
+        looperMode = 'stopped',
+        tunerEnabled = false,
         sampleRate = 48000,
         bufferFrames = 64;
 
@@ -1760,6 +2496,30 @@ class EngineSnapshot {
       ampMidDb: (json['amp_mid_db'] as num?)?.toDouble() ?? 0,
       ampTrebleDb: (json['amp_treble_db'] as num?)?.toDouble() ?? 0,
       ampVolumeDb: (json['amp_volume_db'] as num?)?.toDouble() ?? 0,
+      gateEnabled: json['gate_enabled'] as bool? ?? false,
+      gateThresholdDb: (json['gate_threshold_db'] as num?)?.toDouble() ?? -55,
+      compressorEnabled: json['compressor_enabled'] as bool? ?? false,
+      compressorThresholdDb:
+          (json['compressor_threshold_db'] as num?)?.toDouble() ?? -18,
+      compressorRatio: (json['compressor_ratio'] as num?)?.toDouble() ?? 3,
+      eqEnabled: json['eq_enabled'] as bool? ?? false,
+      eqLowDb: (json['eq_low_db'] as num?)?.toDouble() ?? 0,
+      eqMidDb: (json['eq_mid_db'] as num?)?.toDouble() ?? 0,
+      eqHighDb: (json['eq_high_db'] as num?)?.toDouble() ?? 0,
+      chorusEnabled: json['chorus_enabled'] as bool? ?? false,
+      chorusRateHz: (json['chorus_rate_hz'] as num?)?.toDouble() ?? .8,
+      chorusDepth: (json['chorus_depth'] as num?)?.toDouble() ?? .5,
+      chorusMix: (json['chorus_mix'] as num?)?.toDouble() ?? .35,
+      delayEnabled: json['delay_enabled'] as bool? ?? false,
+      delayTimeMs: (json['delay_time_ms'] as num?)?.toDouble() ?? 360,
+      delayFeedback: (json['delay_feedback'] as num?)?.toDouble() ?? .35,
+      delayMix: (json['delay_mix'] as num?)?.toDouble() ?? .25,
+      reverbEnabled: json['reverb_enabled'] as bool? ?? false,
+      reverbDecaySeconds:
+          (json['reverb_decay_seconds'] as num?)?.toDouble() ?? 2.5,
+      reverbMix: (json['reverb_mix'] as num?)?.toDouble() ?? .25,
+      looperMode: json['looper_mode'] as String? ?? 'stopped',
+      tunerEnabled: json['tuner_enabled'] as bool? ?? false,
       sampleRate: json['sample_rate'] as int? ?? 48000,
       bufferFrames: json['buffer_frames'] as int? ?? 64,
     );
@@ -1781,10 +2541,68 @@ class EngineSnapshot {
   final double ampMidDb;
   final double ampTrebleDb;
   final double ampVolumeDb;
+  final bool gateEnabled;
+  final double gateThresholdDb;
+  final bool compressorEnabled;
+  final double compressorThresholdDb;
+  final double compressorRatio;
+  final bool eqEnabled;
+  final double eqLowDb;
+  final double eqMidDb;
+  final double eqHighDb;
+  final bool chorusEnabled;
+  final double chorusRateHz;
+  final double chorusDepth;
+  final double chorusMix;
+  final bool delayEnabled;
+  final double delayTimeMs;
+  final double delayFeedback;
+  final double delayMix;
+  final bool reverbEnabled;
+  final double reverbDecaySeconds;
+  final double reverbMix;
+  final String looperMode;
+  final bool tunerEnabled;
   final int sampleRate;
   final int bufferFrames;
 
   String get presetTitle => presetDirty ? '$preset *' : preset;
+
+  bool effectEnabled(EffectKind effect) => switch (effect) {
+        EffectKind.gate => gateEnabled,
+        EffectKind.compressor => compressorEnabled,
+        EffectKind.eq => eqEnabled,
+        EffectKind.chorus => chorusEnabled,
+        EffectKind.delay => delayEnabled,
+        EffectKind.reverb => reverbEnabled,
+      };
+
+  Map<String, double> effectControls(EffectKind effect) => switch (effect) {
+        EffectKind.gate => {'gate_threshold_db': gateThresholdDb},
+        EffectKind.compressor => {
+            'compressor_threshold_db': compressorThresholdDb,
+            'compressor_ratio': compressorRatio,
+          },
+        EffectKind.eq => {
+            'eq_low_db': eqLowDb,
+            'eq_mid_db': eqMidDb,
+            'eq_high_db': eqHighDb,
+          },
+        EffectKind.chorus => {
+            'chorus_rate_hz': chorusRateHz,
+            'chorus_depth': chorusDepth,
+            'chorus_mix': chorusMix,
+          },
+        EffectKind.delay => {
+            'delay_time_ms': delayTimeMs,
+            'delay_feedback': delayFeedback,
+            'delay_mix': delayMix,
+          },
+        EffectKind.reverb => {
+            'reverb_decay_seconds': reverbDecaySeconds,
+            'reverb_mix': reverbMix,
+          },
+      };
 
   String get modelName {
     final pre = preModel?.split('/').last;
@@ -1954,6 +2772,24 @@ class ControlClient {
         'set_slot_bypass',
         {'slot': slot.name, 'bypassed': bypassed},
         timeoutMessage: 'Bypass change timed out',
+      );
+
+  Future<void> setEffectBypass(EffectKind effect, bool bypassed) => _request(
+        'set_effect_bypass',
+        {'effect': effect.wireName, 'bypassed': bypassed},
+        timeoutMessage: 'Effect bypass change timed out',
+      );
+
+  Future<void> looperAction(String action) => _request(
+        'looper_action',
+        {'action': action},
+        timeoutMessage: 'Looper command timed out',
+      );
+
+  Future<void> setTunerEnabled(bool enabled) => _request(
+        'set_tuner_enabled',
+        {'enabled': enabled},
+        timeoutMessage: 'Tuner change timed out',
       );
 
   Future<void> clearModel(ModelSlot slot) => _request(

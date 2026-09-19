@@ -1,0 +1,430 @@
+//! Lightweight, allocation-free guitar effects for the real-time signal path.
+//!
+//! The processors deliberately use small, predictable algorithms so the NAM
+//! models remain the expensive part of the rig on a Raspberry Pi.
+
+use crate::EngineState;
+use crate::dsp::MonoProcessor;
+use std::f32::consts::TAU;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering};
+
+fn gain_from_db(db: f32) -> f32 {
+    10.0_f32.powf(db / 20.0)
+}
+
+struct AtomicFloat(AtomicU32);
+
+impl AtomicFloat {
+    fn new(value: f32) -> Self {
+        Self(AtomicU32::new(value.to_bits()))
+    }
+
+    fn load(&self) -> f32 {
+        f32::from_bits(self.0.load(Ordering::Relaxed))
+    }
+
+    fn store(&self, value: f32) {
+        self.0.store(value.to_bits(), Ordering::Relaxed);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LooperMode {
+    Stopped = 0,
+    Recording = 1,
+    Playing = 2,
+    Overdubbing = 3,
+}
+
+impl LooperMode {
+    pub fn from_state(value: &str) -> Self {
+        match value {
+            "recording" => Self::Recording,
+            "playing" => Self::Playing,
+            "overdubbing" => Self::Overdubbing,
+            _ => Self::Stopped,
+        }
+    }
+
+    pub fn as_state(self) -> &'static str {
+        match self {
+            Self::Stopped => "stopped",
+            Self::Recording => "recording",
+            Self::Playing => "playing",
+            Self::Overdubbing => "overdubbing",
+        }
+    }
+}
+
+/// Controls are atomics so updates never lock the audio callback.
+pub struct EffectsParameters {
+    gate_enabled: AtomicBool,
+    gate_threshold_db: AtomicFloat,
+    compressor_enabled: AtomicBool,
+    compressor_threshold_db: AtomicFloat,
+    compressor_ratio: AtomicFloat,
+    eq_enabled: AtomicBool,
+    eq_low_db: AtomicFloat,
+    eq_mid_db: AtomicFloat,
+    eq_high_db: AtomicFloat,
+    chorus_enabled: AtomicBool,
+    chorus_rate_hz: AtomicFloat,
+    chorus_depth: AtomicFloat,
+    chorus_mix: AtomicFloat,
+    delay_enabled: AtomicBool,
+    delay_time_ms: AtomicFloat,
+    delay_feedback: AtomicFloat,
+    delay_mix: AtomicFloat,
+    reverb_enabled: AtomicBool,
+    reverb_decay_seconds: AtomicFloat,
+    reverb_mix: AtomicFloat,
+    looper_mode: AtomicU8,
+}
+
+impl EffectsParameters {
+    pub fn from_state(state: &EngineState) -> Self {
+        Self {
+            gate_enabled: AtomicBool::new(state.gate_enabled),
+            gate_threshold_db: AtomicFloat::new(state.gate_threshold_db),
+            compressor_enabled: AtomicBool::new(state.compressor_enabled),
+            compressor_threshold_db: AtomicFloat::new(state.compressor_threshold_db),
+            compressor_ratio: AtomicFloat::new(state.compressor_ratio),
+            eq_enabled: AtomicBool::new(state.eq_enabled),
+            eq_low_db: AtomicFloat::new(state.eq_low_db),
+            eq_mid_db: AtomicFloat::new(state.eq_mid_db),
+            eq_high_db: AtomicFloat::new(state.eq_high_db),
+            chorus_enabled: AtomicBool::new(state.chorus_enabled),
+            chorus_rate_hz: AtomicFloat::new(state.chorus_rate_hz),
+            chorus_depth: AtomicFloat::new(state.chorus_depth),
+            chorus_mix: AtomicFloat::new(state.chorus_mix),
+            delay_enabled: AtomicBool::new(state.delay_enabled),
+            delay_time_ms: AtomicFloat::new(state.delay_time_ms),
+            delay_feedback: AtomicFloat::new(state.delay_feedback),
+            delay_mix: AtomicFloat::new(state.delay_mix),
+            reverb_enabled: AtomicBool::new(state.reverb_enabled),
+            reverb_decay_seconds: AtomicFloat::new(state.reverb_decay_seconds),
+            reverb_mix: AtomicFloat::new(state.reverb_mix),
+            looper_mode: AtomicU8::new(LooperMode::from_state(&state.looper_mode) as u8),
+        }
+    }
+
+    pub fn update(&self, state: &EngineState) {
+        self.gate_enabled
+            .store(state.gate_enabled, Ordering::Relaxed);
+        self.gate_threshold_db.store(state.gate_threshold_db);
+        self.compressor_enabled
+            .store(state.compressor_enabled, Ordering::Relaxed);
+        self.compressor_threshold_db
+            .store(state.compressor_threshold_db);
+        self.compressor_ratio.store(state.compressor_ratio);
+        self.eq_enabled.store(state.eq_enabled, Ordering::Relaxed);
+        self.eq_low_db.store(state.eq_low_db);
+        self.eq_mid_db.store(state.eq_mid_db);
+        self.eq_high_db.store(state.eq_high_db);
+        self.chorus_enabled
+            .store(state.chorus_enabled, Ordering::Relaxed);
+        self.chorus_rate_hz.store(state.chorus_rate_hz);
+        self.chorus_depth.store(state.chorus_depth);
+        self.chorus_mix.store(state.chorus_mix);
+        self.delay_enabled
+            .store(state.delay_enabled, Ordering::Relaxed);
+        self.delay_time_ms.store(state.delay_time_ms);
+        self.delay_feedback.store(state.delay_feedback);
+        self.delay_mix.store(state.delay_mix);
+        self.reverb_enabled
+            .store(state.reverb_enabled, Ordering::Relaxed);
+        self.reverb_decay_seconds.store(state.reverb_decay_seconds);
+        self.reverb_mix.store(state.reverb_mix);
+        self.looper_mode.store(
+            LooperMode::from_state(&state.looper_mode) as u8,
+            Ordering::Relaxed,
+        );
+    }
+}
+
+pub struct EffectChainProcessor<P> {
+    source: P,
+    parameters: Arc<EffectsParameters>,
+    sample_rate: f32,
+    gate_gain: f32,
+    compressor_envelope: f32,
+    compressor_gain: f32,
+    eq_low_state: f32,
+    eq_high_state: f32,
+    chorus_buffer: Vec<f32>,
+    chorus_write: usize,
+    chorus_phase: f32,
+    delay_buffer: Vec<f32>,
+    delay_write: usize,
+    reverb_buffers: [Vec<f32>; 4],
+    reverb_indices: [usize; 4],
+    looper_buffer: Vec<f32>,
+    looper_position: usize,
+    looper_length: usize,
+    previous_looper_mode: LooperMode,
+}
+
+impl<P> EffectChainProcessor<P> {
+    pub fn new(
+        source: P,
+        parameters: Arc<EffectsParameters>,
+        sample_rate: u32,
+        max_loop_seconds: usize,
+    ) -> Self {
+        let sample_rate_f32 = sample_rate as f32;
+        let make_reverb_line = |seconds: f32| vec![0.0; (seconds * sample_rate_f32) as usize];
+        Self {
+            source,
+            parameters,
+            sample_rate: sample_rate_f32,
+            gate_gain: 1.0,
+            compressor_envelope: 0.0,
+            compressor_gain: 1.0,
+            eq_low_state: 0.0,
+            eq_high_state: 0.0,
+            chorus_buffer: vec![0.0; (sample_rate_f32 * 0.04) as usize],
+            chorus_write: 0,
+            chorus_phase: 0.0,
+            delay_buffer: vec![0.0; (sample_rate_f32 * 2.0) as usize],
+            delay_write: 0,
+            reverb_buffers: [
+                make_reverb_line(0.0297),
+                make_reverb_line(0.0371),
+                make_reverb_line(0.0411),
+                make_reverb_line(0.0437),
+            ],
+            reverb_indices: [0; 4],
+            looper_buffer: vec![0.0; sample_rate as usize * max_loop_seconds],
+            looper_position: 0,
+            looper_length: 0,
+            previous_looper_mode: LooperMode::Stopped,
+        }
+    }
+
+    fn looper_mode(&self) -> LooperMode {
+        match self.parameters.looper_mode.load(Ordering::Relaxed) {
+            1 => LooperMode::Recording,
+            2 => LooperMode::Playing,
+            3 => LooperMode::Overdubbing,
+            _ => LooperMode::Stopped,
+        }
+    }
+
+    fn process_gate(&mut self, samples: &mut [f32]) {
+        if !self.parameters.gate_enabled.load(Ordering::Relaxed) {
+            self.gate_gain = 1.0;
+            return;
+        }
+        let threshold = gain_from_db(self.parameters.gate_threshold_db.load());
+        for sample in samples {
+            let target = if sample.abs() >= threshold { 1.0 } else { 0.0 };
+            let smoothing = if target > self.gate_gain {
+                0.08
+            } else {
+                0.0025
+            };
+            self.gate_gain += (target - self.gate_gain) * smoothing;
+            *sample *= self.gate_gain;
+        }
+    }
+
+    fn process_compressor(&mut self, samples: &mut [f32]) {
+        if !self.parameters.compressor_enabled.load(Ordering::Relaxed) {
+            self.compressor_gain = 1.0;
+            return;
+        }
+        let threshold = gain_from_db(self.parameters.compressor_threshold_db.load());
+        let ratio = self.parameters.compressor_ratio.load().max(1.0);
+        for sample in samples {
+            let level = sample.abs();
+            let envelope_rate = if level > self.compressor_envelope {
+                0.05
+            } else {
+                0.0015
+            };
+            self.compressor_envelope += (level - self.compressor_envelope) * envelope_rate;
+            let target = if self.compressor_envelope > threshold {
+                (threshold / self.compressor_envelope).powf(1.0 - 1.0 / ratio)
+            } else {
+                1.0
+            };
+            self.compressor_gain += (target - self.compressor_gain) * 0.025;
+            *sample *= self.compressor_gain;
+        }
+    }
+
+    fn process_eq(&mut self, samples: &mut [f32]) {
+        if !self.parameters.eq_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        let low_gain = gain_from_db(self.parameters.eq_low_db.load());
+        let mid_gain = gain_from_db(self.parameters.eq_mid_db.load());
+        let high_gain = gain_from_db(self.parameters.eq_high_db.load());
+        let low_alpha = 1.0 - (-TAU * 250.0 / self.sample_rate).exp();
+        let high_alpha = 1.0 - (-TAU * 2_500.0 / self.sample_rate).exp();
+        for sample in samples {
+            let input = *sample;
+            self.eq_low_state += low_alpha * (input - self.eq_low_state);
+            self.eq_high_state += high_alpha * (input - self.eq_high_state);
+            let low = self.eq_low_state;
+            let high = input - self.eq_high_state;
+            let mid = input - low - high;
+            *sample = low * low_gain + mid * mid_gain + high * high_gain;
+        }
+    }
+
+    fn process_chorus(&mut self, samples: &mut [f32]) {
+        if !self.parameters.chorus_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        let rate = self.parameters.chorus_rate_hz.load().clamp(0.05, 8.0);
+        let depth = self.parameters.chorus_depth.load().clamp(0.0, 1.0);
+        let mix = self.parameters.chorus_mix.load().clamp(0.0, 1.0);
+        let base_delay = self.sample_rate * 0.014;
+        let depth_samples = self.sample_rate * 0.009 * depth;
+        for sample in samples {
+            let delay = base_delay + depth_samples * (self.chorus_phase.sin() + 1.0) * 0.5;
+            let read = (self.chorus_write + self.chorus_buffer.len() - delay as usize)
+                % self.chorus_buffer.len();
+            let next = (read + 1) % self.chorus_buffer.len();
+            let fraction = delay.fract();
+            let delayed =
+                self.chorus_buffer[read] * (1.0 - fraction) + self.chorus_buffer[next] * fraction;
+            self.chorus_buffer[self.chorus_write] = *sample;
+            self.chorus_write = (self.chorus_write + 1) % self.chorus_buffer.len();
+            self.chorus_phase = (self.chorus_phase + TAU * rate / self.sample_rate) % TAU;
+            *sample = *sample * (1.0 - mix) + delayed * mix;
+        }
+    }
+
+    fn process_delay(&mut self, samples: &mut [f32]) {
+        if !self.parameters.delay_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        let delay_samples = (self.parameters.delay_time_ms.load().clamp(20.0, 1_800.0)
+            * self.sample_rate
+            / 1_000.0) as usize;
+        let feedback = self.parameters.delay_feedback.load().clamp(0.0, 0.92);
+        let mix = self.parameters.delay_mix.load().clamp(0.0, 1.0);
+        for sample in samples {
+            let read = (self.delay_write + self.delay_buffer.len() - delay_samples)
+                % self.delay_buffer.len();
+            let delayed = self.delay_buffer[read];
+            self.delay_buffer[self.delay_write] = *sample + delayed * feedback;
+            self.delay_write = (self.delay_write + 1) % self.delay_buffer.len();
+            *sample = *sample * (1.0 - mix) + delayed * mix;
+        }
+    }
+
+    fn process_reverb(&mut self, samples: &mut [f32]) {
+        if !self.parameters.reverb_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        let decay = self.parameters.reverb_decay_seconds.load().clamp(0.3, 12.0);
+        let mix = self.parameters.reverb_mix.load().clamp(0.0, 1.0);
+        let feedbacks = self
+            .reverb_buffers
+            .each_ref()
+            .map(|line| 10.0_f32.powf(-3.0 * line.len() as f32 / self.sample_rate / decay));
+        for sample in samples {
+            let dry = *sample;
+            let mut wet = 0.0;
+            for ((line, index), feedback) in self
+                .reverb_buffers
+                .iter_mut()
+                .zip(self.reverb_indices.iter_mut())
+                .zip(feedbacks)
+            {
+                let delayed = line[*index];
+                line[*index] = dry + delayed * feedback;
+                *index = (*index + 1) % line.len();
+                wet += delayed;
+            }
+            *sample = dry * (1.0 - mix) + wet * 0.25 * mix;
+        }
+    }
+
+    fn process_looper(&mut self, samples: &mut [f32]) {
+        let mode = self.looper_mode();
+        if mode == LooperMode::Recording && self.previous_looper_mode != LooperMode::Recording {
+            self.looper_position = 0;
+            self.looper_length = 0;
+        }
+        if mode == LooperMode::Playing || mode == LooperMode::Overdubbing {
+            if self.looper_length > 0 {
+                self.looper_position %= self.looper_length;
+            } else {
+                self.looper_position = 0;
+            }
+        }
+        for sample in samples {
+            match mode {
+                LooperMode::Recording => {
+                    self.looper_buffer[self.looper_position] = *sample;
+                    self.looper_position += 1;
+                    self.looper_length = self.looper_length.max(self.looper_position);
+                    if self.looper_position == self.looper_buffer.len() {
+                        self.looper_position = 0;
+                        self.looper_length = self.looper_buffer.len();
+                    }
+                }
+                LooperMode::Playing if self.looper_length > 0 => {
+                    *sample += self.looper_buffer[self.looper_position];
+                    self.looper_position = (self.looper_position + 1) % self.looper_length;
+                }
+                LooperMode::Overdubbing if self.looper_length > 0 => {
+                    let loop_sample = self.looper_buffer[self.looper_position];
+                    self.looper_buffer[self.looper_position] = loop_sample + *sample * 0.5;
+                    *sample += loop_sample;
+                    self.looper_position = (self.looper_position + 1) % self.looper_length;
+                }
+                _ => {}
+            }
+        }
+        self.previous_looper_mode = mode;
+    }
+}
+
+impl<P: MonoProcessor> MonoProcessor for EffectChainProcessor<P> {
+    fn process(&mut self, samples: &mut [f32]) {
+        self.process_gate(samples);
+        self.process_compressor(samples);
+        self.source.process(samples);
+        self.process_eq(samples);
+        self.process_chorus(samples);
+        self.process_delay(samples);
+        self.process_reverb(samples);
+        self.process_looper(samples);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dsp::Passthrough;
+
+    #[test]
+    fn disabled_effects_are_transparent() {
+        let state = EngineState::default();
+        let params = Arc::new(EffectsParameters::from_state(&state));
+        let mut chain = EffectChainProcessor::new(Passthrough, params, 48_000, 1);
+        let mut samples = [0.25, -0.5, 0.75];
+        chain.process(&mut samples);
+        assert_eq!(samples, [0.25, -0.5, 0.75]);
+    }
+
+    #[test]
+    fn gate_reduces_a_signal_below_its_threshold() {
+        let state = EngineState {
+            gate_enabled: true,
+            gate_threshold_db: -20.0,
+            ..EngineState::default()
+        };
+        let params = Arc::new(EffectsParameters::from_state(&state));
+        let mut chain = EffectChainProcessor::new(Passthrough, params, 48_000, 1);
+        let mut samples = [0.01; 512];
+        chain.process(&mut samples);
+        assert!(samples.last().expect("sample").abs() < 0.003);
+    }
+}

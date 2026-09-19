@@ -4,8 +4,8 @@ Pedal V0 is a Raspberry Pi 5 guitar processor focused on two jobs: running Neura
 
 ## Current state
 
-- Rust daemon owns the continuous ALSA stream, restores pedal and amp NAM slots, and provides a 30 Hz input high-pass filter, −1 dBFS safety limiter, and real-time-safe controls.
-- Flutter Linux UI controls the rig and displays input/output peaks, clipping, DSP CPU use, and cumulative XRuns.
+- Rust daemon owns the continuous ALSA stream, restores pedal and amp NAM slots, and provides a 30 Hz input high-pass filter, gate, compressor, post-NAM EQ, chorus, delay, reverb, 30-second RAM looper, −1 dBFS safety limiter, and real-time-safe controls.
+- Flutter Linux UI controls the rig and displays input/output peaks, clipping, DSP CPU use, and cumulative XRuns. Its clean-input tuner supports Standard, Drop D, D Standard, Drop C, Open G, and Open D.
 - A hardware-free **PREVIEW** control renders a deterministic guitar-like riff through the current pedal and amp chain, then plays it through the computer's normal output.
 - Presets save both NAM slots, bypass choices, and all adjustable controls in an offline, power-safe library.
 - Python catalog tool indexes local `.nam` files into SQLite using content hashes.
@@ -13,7 +13,7 @@ Pedal V0 is a Raspberry Pi 5 guitar processor focused on two jobs: running Neura
 - TONE3000 client implements the hosted PKCE Select flow, A2-only NAM model listing, token refresh, and authenticated atomic downloads behind a mockable transport.
 - Engine state is atomically persisted under `/var/lib/pedal`; the last playable rig survives a power cycle with no network connection.
 - Python mock daemon makes the UI testable before the Rust/Pi toolchain is installed.
-- ALSA discovery, negotiation, and continuous block processing are implemented. NAM Core A2 inference is integrated into the daemon and passes both the desktop soak and restored-model startup checks; live model swapping, IR convolution, and production effects remain.
+- ALSA discovery, negotiation, and continuous block processing are implemented. NAM Core A2 inference is integrated into the daemon and passes both the desktop soak and restored-model startup checks; live model swapping and the built-in pedalboard effects are available. IR convolution remains deferred.
 
 ## Repository map
 
@@ -44,14 +44,17 @@ Omit `PEDAL_AUDIO_ENABLED=0` to let the daemon open the selected ALSA endpoint. 
 
 The v1 control protocol also accepts `select_model` with an absolute local `.nam` path, preset name, and a `pre` or `amp` slot. The requesting control thread fully validates and prepares the model first. Independent single-slot mailboxes let the audio thread adopt each model at a block boundary without waiting; old models are retained for disposal outside the real-time path. Only successfully prepared selections become persistent restart state.
 
-The active V0 NAM chain is now:
+The active V0 signal chain is now:
 
 ```text
-guitar input -> 30 Hz high-pass -> optional pedal/pre NAM -> optional amp NAM
+guitar input -> 30 Hz high-pass -> gate -> compressor -> optional pedal/pre NAM
+             -> optional amp NAM -> EQ -> chorus -> delay -> reverb -> looper
              -> -1 dBFS safety limiter -> stereo output
 ```
 
-The Flutter tone picker asks whether a model should load as **PEDAL** or **AMP** and displays the resulting chain. The main rig screen can bypass either slot independently; tapping an active slot opens its adjustable controls and model-removal action. Pedal controls provide drive, dry/wet mix, and level around the capture. Amp controls provide a post-capture three-band tone stack and volume. Models, bypass settings, and control values survive an offline restart. A hardware-free integration test also processes a block through two real A2 networks in series.
+The header's **Tuner** control reads the clean guitar input before the gate, NAM, and effect chain, so it remains useful regardless of the current rig. It provides a cents needle plus common tuning targets; it does not mute or change the live sound and turns off when closed.
+
+The Flutter tone picker asks whether a model should load as **PEDAL** or **AMP** and displays the resulting chain. The main rig screen is a scrollable, PSX-inspired pedalboard: tap a pedal face to edit its settings or its footswitch to engage/bypass it. Gate, compressor, EQ, chorus, delay, and reverb settings and on/off states are preset-safe. The looper captures up to 30 seconds after the reverb and supports record, play, overdub, and stop; loop audio is intentionally RAM-only and clears after a restart. Pedal controls provide drive, dry/wet mix, and level around the capture. Amp controls provide a post-capture three-band tone stack and volume. Models, bypass settings, and control values survive an offline restart. A hardware-free integration test also processes a block through two real A2 networks in series.
 
 Tap the large rig name to open the preset library. It supports save, load, rename, and delete; an asterisk marks a loaded preset whose slot or control settings have been changed. Preset loading validates all referenced local models before replacing the current rig, and deleting a preset never interrupts the sound currently in memory.
 
@@ -91,7 +94,7 @@ tools/dev.sh demo
 
 This starts the real Rust engine with audio disabled, starts the catalog, waits for both sockets, launches Flutter, and cleans up the background services when the UI closes. State, presets, downloaded credentials, the catalog database, and logs are kept under `.pedal-dev`; downloaded `.nam` models remain in `data/models` for later offline use.
 
-Press **TEST AUDIO** in the main UI to audition the current rig without a guitar or Scarlett. The built-in test is a real CC0 guitar DI recording made through a Focusrite Scarlett; choose **DRY** or **YOUR RIG** for an A/B comparison. You can also choose a local WAV or retain the deterministic synthetic riff for repeatable engineering checks. The engine accepts mono or stereo PCM/float WAV input, mixes it to mono, resamples it to 48 kHz, and renders it through the current pedal and amp chain. Flutter plays the resulting stereo WAV through PipeWire (`pw-play`) or ALSA (`aplay`). The generated file lives at `.pedal-dev/preview.wav` and is replaced on each preview. Source and licensing for the bundled recording are documented in `data/test-audio/README.md`.
+Press **TEST AUDIO** in the main UI to audition the current rig without a guitar or Scarlett. The built-in test is a real CC0 guitar DI recording made through a Focusrite Scarlett; choose **DRY** or **YOUR RIG** for an A/B comparison. You can also choose a local WAV or retain the deterministic synthetic riff for repeatable engineering checks. The engine accepts mono or stereo PCM/float WAV input, mixes it to mono, resamples it to 48 kHz, and renders it through the current NAM and effects chain. Flutter plays the resulting stereo WAV through PipeWire (`pw-play`) or ALSA (`aplay`). The generated file lives at `.pedal-dev/preview.wav` and is replaced on each preview. Source and licensing for the bundled recording are documented in `data/test-audio/README.md`.
 
 For backend-only work or troubleshooting:
 
