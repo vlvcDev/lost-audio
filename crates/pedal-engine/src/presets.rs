@@ -24,18 +24,23 @@ pub struct PresetRig {
     pub compressor_threshold_db: f32,
     pub compressor_ratio: f32,
     pub eq_enabled: bool,
+    pub eq_visible: bool,
     pub eq_low_db: f32,
     pub eq_mid_db: f32,
     pub eq_high_db: f32,
     pub chorus_enabled: bool,
+    pub chorus_visible: bool,
     pub chorus_rate_hz: f32,
     pub chorus_depth: f32,
     pub chorus_mix: f32,
     pub delay_enabled: bool,
+    pub delay_visible: bool,
     pub delay_time_ms: f32,
     pub delay_feedback: f32,
     pub delay_mix: f32,
     pub reverb_enabled: bool,
+    pub reverb_visible: bool,
+    pub looper_visible: bool,
     pub reverb_decay_seconds: f32,
     pub reverb_mix: f32,
 }
@@ -66,18 +71,23 @@ impl PresetRig {
             compressor_threshold_db: state.compressor_threshold_db,
             compressor_ratio: state.compressor_ratio,
             eq_enabled: state.eq_enabled,
+            eq_visible: state.eq_visible,
             eq_low_db: state.eq_low_db,
             eq_mid_db: state.eq_mid_db,
             eq_high_db: state.eq_high_db,
             chorus_enabled: state.chorus_enabled,
+            chorus_visible: state.chorus_visible,
             chorus_rate_hz: state.chorus_rate_hz,
             chorus_depth: state.chorus_depth,
             chorus_mix: state.chorus_mix,
             delay_enabled: state.delay_enabled,
+            delay_visible: state.delay_visible,
             delay_time_ms: state.delay_time_ms,
             delay_feedback: state.delay_feedback,
             delay_mix: state.delay_mix,
             reverb_enabled: state.reverb_enabled,
+            reverb_visible: state.reverb_visible,
+            looper_visible: state.looper_visible,
             reverb_decay_seconds: state.reverb_decay_seconds,
             reverb_mix: state.reverb_mix,
         }
@@ -101,18 +111,23 @@ impl PresetRig {
         state.compressor_threshold_db = self.compressor_threshold_db;
         state.compressor_ratio = self.compressor_ratio;
         state.eq_enabled = self.eq_enabled;
+        state.eq_visible = self.eq_visible;
         state.eq_low_db = self.eq_low_db;
         state.eq_mid_db = self.eq_mid_db;
         state.eq_high_db = self.eq_high_db;
         state.chorus_enabled = self.chorus_enabled;
+        state.chorus_visible = self.chorus_visible;
         state.chorus_rate_hz = self.chorus_rate_hz;
         state.chorus_depth = self.chorus_depth;
         state.chorus_mix = self.chorus_mix;
         state.delay_enabled = self.delay_enabled;
+        state.delay_visible = self.delay_visible;
         state.delay_time_ms = self.delay_time_ms;
         state.delay_feedback = self.delay_feedback;
         state.delay_mix = self.delay_mix;
         state.reverb_enabled = self.reverb_enabled;
+        state.reverb_visible = self.reverb_visible;
+        state.looper_visible = self.looper_visible;
         state.reverb_decay_seconds = self.reverb_decay_seconds;
         state.reverb_mix = self.reverb_mix;
     }

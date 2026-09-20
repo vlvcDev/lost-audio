@@ -6,18 +6,19 @@ void main() {
   testWidgets('shows the disconnected rig shell', (tester) async {
     await tester.pumpWidget(const PedalApp());
 
-    expect(find.text('PEDAL'), findsOneWidget);
+    expect(find.text('LOST//AUDIO'), findsOneWidget);
     expect(find.text('SIGNAL PATH'), findsOneWidget);
     expect(find.text('NAM'), findsNWidgets(2));
     expect(find.text('GATE'), findsOneWidget);
     expect(find.text('Waiting for engine'), findsOneWidget);
-    expect(find.text('RECONNECT'), findsOneWidget);
-    expect(find.text('TONES'), findsOneWidget);
-    expect(find.text('TEST AUDIO'), findsOneWidget);
-    expect(find.text('TONE3000'), findsOneWidget);
-    expect(find.text('OUTPUT'), findsOneWidget);
+    expect(find.byTooltip('Test audio'), findsOneWidget);
+    expect(find.byTooltip('Reconnect engine'), findsOneWidget);
+    expect(find.text('INPUT SCOPE'), findsOneWidget);
+    expect(find.text('AERO LAGOON'), findsOneWidget);
+    expect(find.text('T3K'), findsOneWidget);
+    expect(find.text('SND'), findsOneWidget);
     expect(find.text('IN'), findsOneWidget);
-    expect(find.text('OUT'), findsOneWidget);
+    expect(find.text('SND'), findsOneWidget);
     expect(find.textContaining('XRUN 0'), findsOneWidget);
   });
 
@@ -31,10 +32,9 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('TONES'), findsOneWidget);
-    expect(find.text('TEST AUDIO'), findsOneWidget);
-    expect(find.text('TONE3000'), findsOneWidget);
-    expect(find.text('OUTPUT'), findsOneWidget);
+    expect(find.byTooltip('Test audio'), findsOneWidget);
+    expect(find.byTooltip('TONE3000'), findsOneWidget);
+    expect(find.text('OUT'), findsOneWidget);
   });
 
   test('catalog model formats offline metadata for the touch UI', () {
@@ -230,7 +230,7 @@ Audio
           slot: ModelSlot.amp,
           snapshot: snapshot,
           onChanged: (_, __) async {},
-          onClear: () {},
+          onChangeTone: () {},
         ),
       ),
     );
@@ -265,6 +265,27 @@ Audio
     expect(find.text('PRESETS'), findsOneWidget);
     expect(find.text('Crunch'), findsOneWidget);
     expect(find.text('SAVE CURRENT RIG'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('add-pedal choices fit the target touchscreen', (tester) async {
+    tester.view.physicalSize = const Size(480, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      PedalAppTestShell(
+        child: AddPedalSheet(
+          snapshot: EngineSnapshot.disconnected(),
+          onAdd: (_) async {},
+        ),
+      ),
+    );
+
+    expect(find.text('ADD A PEDAL'), findsOneWidget);
+    expect(find.text('EQ'), findsOneWidget);
+    expect(find.text('CHORUS'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

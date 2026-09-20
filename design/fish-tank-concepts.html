@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lost//Audio — Aquarium concepts</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Arial, sans-serif;
+        background: #030a1a;
+        color: #effbff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 86% 5%, #175cae88, transparent 24rem),
+          linear-gradient(145deg, #030a1a, #071b42 55%, #030a1a);
+      }
+      main { max-width: 1180px; margin: auto; padding: 34px 22px 50px; }
+      h1 { margin: 0; font-size: clamp(28px, 5vw, 52px); font-style: italic; letter-spacing: -2px; text-shadow: 0 0 18px #29b9ff; }
+      .eyebrow { color: #c9ff68; letter-spacing: 2px; font-size: 11px; font-weight: 900; }
+      .intro { max-width: 720px; color: #bceeff; line-height: 1.5; }
+      .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 26px; }
+      .concept { padding: 12px; border: 1px solid #8ce4ff; border-radius: 20px; background: linear-gradient(135deg, #123b6add, #071a43dd); box-shadow: 0 12px 34px #000a, inset 0 1px #effbff55; }
+      .concept h2 { font-size: 16px; margin: 13px 4px 4px; letter-spacing: .5px; }
+      .concept p { min-height: 48px; margin: 0 4px; color: #bceeff; font-size: 13px; line-height: 1.4; }
+      .tag { display: inline-block; margin: 10px 4px 3px; padding: 4px 8px; border-radius: 99px; color: #c9ff68; background: #0c3159; border: 1px solid #29b9ff88; font-size: 9px; font-weight: 900; letter-spacing: 1px; }
+
+      .tank {
+        position: relative;
+        height: 230px;
+        overflow: hidden;
+        border: 2px solid #c5f4ff;
+        border-radius: 15px 15px 40px 40px;
+        background: linear-gradient(#79dfff 0 42%, #bdeeff 42% 53%, #59bd66 53% 100%);
+        box-shadow: inset 0 0 35px #d8faff88, inset 0 -18px 25px #126dc366, 0 0 18px #29b9ff66;
+      }
+      .tank::before {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(110deg, #fff8, transparent 20% 73%, #fff3), repeating-linear-gradient(90deg, #fff1 0 1px, transparent 1px 28px);
+        pointer-events: none; z-index: 8;
+      }
+      .cloud { position: absolute; width: 90px; height: 20px; border-radius: 50%; background: #fff9; filter: blur(5px); top: 24px; }
+      .cloud::after { content: ""; position: absolute; width: 36px; height: 36px; border-radius: 50%; background: inherit; left: 26px; bottom: 5px; }
+      .cloud.one { left: 16px; } .cloud.two { right: 8px; top: 52px; transform: scale(.65); }
+      .hill { position: absolute; width: 170%; height: 105px; left: -26%; bottom: -53px; border-radius: 50% 50% 0 0; background: radial-gradient(ellipse at 40% 0, #b7f27c, #4aa957 55%, #267743); }
+      .hill.two { left: 28%; bottom: -63px; transform: scale(1.15); background: radial-gradient(ellipse at 30% 0, #d3ff91, #52bd62 55%, #2b8748); }
+      .water { position: absolute; inset: 72px 0 0; background: linear-gradient(#66d9ff88, #138fd2aa 50%, #07548fbb); border-top: 2px solid #ecffff99; }
+      .water::after { content: ""; position: absolute; inset: 0; background: repeating-radial-gradient(ellipse at 50% 0, transparent 0 8px, #d6fbff22 9px 10px); opacity: .7; }
+      .bubble { position: absolute; z-index: 4; width: var(--size); height: var(--size); bottom: -20px; left: var(--left); border-radius: 50%; border: 1.5px solid #e7ffffcc; background: radial-gradient(circle at 30% 25%, #fff9, #6ee4ff55 35%, #127ab533); box-shadow: inset -3px -4px 8px #07548f77, 0 0 7px #fff8; animation: rise var(--speed) linear infinite var(--delay); }
+      .bubble::after { content: ""; position: absolute; width: 25%; height: 25%; top: 20%; left: 20%; border-radius: 50%; background: #fff; }
+      .b1 { --size: 13px; --left: 14%; --speed: 5s; --delay: -2s; } .b2 { --size: 8px; --left: 68%; --speed: 7s; --delay: -5s; } .b3 { --size: 18px; --left: 84%; --speed: 8s; --delay: -1s; }
+      @keyframes rise { to { transform: translate(12px, -210px) scale(.55); opacity: .2; } }
+      .fish-route { position: absolute; z-index: 5; inset: 0; animation: cruise 11s ease-in-out infinite alternate; }
+      .fish { position: absolute; left: 18%; top: 47%; width: 76px; height: 38px; border-radius: 56% 48% 48% 56%; background: linear-gradient(145deg, #e8ffff 0 8%, #67dfff 17%, #0f75dc 52%, #063d99 100%); border: 2px solid #ccfbff; box-shadow: 0 0 15px #28baff, inset 6px 5px 9px #fff8; }
+      .fish::before { content: ""; position: absolute; width: 25px; height: 30px; right: -18px; top: 2px; background: linear-gradient(135deg, #3fd9ff, #1261c7); clip-path: polygon(0 50%, 100% 0, 72% 50%, 100% 100%); filter: drop-shadow(0 0 3px #8af1ff); }
+      .fish::after { content: ""; position: absolute; width: 9px; height: 9px; left: 16px; top: 9px; border-radius: 50%; background: #071b42; border: 2px solid #effbff; box-shadow: 0 0 5px #c9ff68; }
+      .fin { position: absolute; width: 19px; height: 16px; left: 33px; bottom: -10px; border-radius: 0 0 100% 100%; background: #126dc3; border: 1px solid #c5f4ff; transform: rotate(13deg); }
+      @keyframes cruise { 0%, 18% { transform: translateX(-12px) translateY(0); } 45% { transform: translateX(122px) translateY(22px) scaleX(1); } 54% { transform: translateX(140px) translateY(22px) scaleX(-1); } 82%, 100% { transform: translateX(20px) translateY(-8px) scaleX(-1); } }
+
+      .bubble-dashboard .tank { border-radius: 50% 50% 22px 22px; background: linear-gradient(#8de8ff, #2bafdd 50%, #1376b8); }
+      .bubble-dashboard .water { inset: 0; background: radial-gradient(circle at 50% -10%, #efffffcc, transparent 38%), linear-gradient(#64dfff, #0872bc 75%); }
+      .bubble-dashboard .hill { opacity: .55; bottom: -65px; } .bubble-dashboard .cloud { display: none; }
+      .bubble-dashboard .fish-route { animation-duration: 7s; }.bubble-dashboard .fish { top: 43%; }
+      .bubble-dashboard .hud { position: absolute; z-index: 7; left: 10px; right: 10px; bottom: 9px; display: flex; justify-content: space-between; color: #effbff; font-size: 8px; font-weight: 900; letter-spacing: 1px; text-shadow: 0 1px #063d99; }
+
+      .porthole .tank { border-radius: 50%; aspect-ratio: 1; height: auto; margin: 0 auto; max-width: 230px; background: #278fc8; box-shadow: inset 0 0 40px #dcffffaa, 0 0 0 7px #0a3167, 0 0 0 9px #96eaff, 0 0 22px #29b9ff99; }
+      .porthole .water { inset: 0; background: linear-gradient(#8ce7ff, #0866ad 80%); } .porthole .cloud { display: none; } .porthole .hill { opacity: .7; bottom: -50px; } .porthole .fish-route { animation-duration: 14s; } .porthole .fish { top: 45%; transform: scale(.8); }
+
+      @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .concept { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 8px 14px; align-items: center; } .concept .tank { grid-row: span 3; height: 170px; } .porthole .tank { height: auto; } .concept h2, .concept p, .concept .tag { margin-left: 0; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">LOST//AUDIO · FUTURE MODULE CONCEPTS</div>
+      <h1>Pick the fish tank energy.</h1>
+      <p class="intro">All three keep the requested sky, green field, bubbles, and a blue cyberfish. They are intentionally low-cost: CSS gradients and two transform animations—no video, WebGL, images, or per-frame canvas work.</p>
+      <section class="grid">
+        <article class="concept lagoon">
+          <div class="tank">
+            <div class="cloud one"></div><div class="cloud two"></div><div class="hill"></div><div class="hill two"></div><div class="water"></div>
+            <div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div>
+            <div class="fish-route"><div class="fish"><div class="fin"></div></div></div>
+          </div>
+          <h2>01 — Aero Lagoon</h2><p>The cleanest fit for the current UI: a glass window onto a cheerful field and sky, with the fish as the focus.</p><span class="tag">RECOMMENDED</span>
+        </article>
+        <article class="concept bubble-dashboard">
+          <div class="tank">
+            <div class="cloud one"></div><div class="hill"></div><div class="hill two"></div><div class="water"></div>
+            <div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div>
+            <div class="fish-route"><div class="fish"><div class="fin"></div></div></div><div class="hud"><span>AQUA LINK</span><span>LIVE</span></div>
+          </div>
+          <h2>02 — Bubble Dashboard</h2><p>A more gadgety interpretation: deeper water, a faster fish, and a tiny chrome HUD overlay.</p><span class="tag">MORE CYBER</span>
+        </article>
+        <article class="concept porthole">
+          <div class="tank">
+            <div class="hill"></div><div class="hill two"></div><div class="water"></div>
+            <div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div>
+            <div class="fish-route"><div class="fish"><div class="fin"></div></div></div>
+          </div>
+          <h2>03 — Orbital Porthole</h2><p>A round, toy-like aquarium that leans furthest into Y2K hardware. Strong visual signature, less room for scenery.</p><span class="tag">MOST PLAYFUL</span>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

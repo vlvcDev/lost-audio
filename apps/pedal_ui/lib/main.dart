@@ -8,6 +8,18 @@ import 'package:flutter/services.dart';
 
 void main() => runApp(const PedalApp());
 
+abstract final class LostChrome {
+  static const midnight = Color(0xff030a1a);
+  static const navy = Color(0xff071b42);
+  static const ocean = Color(0xff083d86);
+  static const cobalt = Color(0xff126dc3);
+  static const electric = Color(0xff29b9ff);
+  static const ice = Color(0xffbceeff);
+  static const pearl = Color(0xffeffbff);
+  static const lime = Color(0xffc9ff68);
+  static const glass = Color(0xff102b5b);
+}
+
 class PedalApp extends StatelessWidget {
   const PedalApp({super.key});
 
@@ -17,15 +29,212 @@ class PedalApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xffed6a2c),
-          brightness: Brightness.dark,
+        colorScheme: const ColorScheme.dark(
+          primary: LostChrome.electric,
+          onPrimary: LostChrome.midnight,
+          secondary: LostChrome.ice,
+          onSecondary: LostChrome.midnight,
+          surface: LostChrome.glass,
+          onSurface: LostChrome.pearl,
+          error: Color(0xffff6c8c),
+          onError: LostChrome.midnight,
+        ),
+        scaffoldBackgroundColor: LostChrome.midnight,
+        textTheme: ThemeData.dark().textTheme.apply(
+              bodyColor: LostChrome.pearl,
+              displayColor: LostChrome.pearl,
+              fontFamily: 'Arial',
+            ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Color(0xff081938),
+          modalBackgroundColor: Color(0xff081938),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            side: BorderSide(color: Color(0xff5bcfff), width: 1.2),
+          ),
+        ),
+        dialogTheme: const DialogThemeData(
+          backgroundColor: Color(0xff0a2048),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+            side: BorderSide(color: Color(0xff5bcfff)),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            foregroundColor: LostChrome.midnight,
+            backgroundColor: LostChrome.ice,
+            textStyle:
+                const TextStyle(fontWeight: FontWeight.w900, letterSpacing: .5),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: LostChrome.ice,
+            side: const BorderSide(color: Color(0xff6bcfff)),
+            textStyle:
+                const TextStyle(fontWeight: FontWeight.w800, letterSpacing: .4),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+          ),
+        ),
+        sliderTheme: const SliderThemeData(
+          activeTrackColor: LostChrome.electric,
+          inactiveTrackColor: Color(0xff254a81),
+          thumbColor: LostChrome.pearl,
+          overlayColor: Color(0x3329b9ff),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: const Color(0xff0d2b59),
+          selectedColor: LostChrome.ice,
+          secondarySelectedColor: LostChrome.ice,
+          labelStyle: const TextStyle(
+              color: LostChrome.pearl, fontWeight: FontWeight.w700),
+          secondaryLabelStyle: const TextStyle(
+              color: LostChrome.midnight, fontWeight: FontWeight.w900),
+          side: const BorderSide(color: Color(0xff4d8ec9)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         useMaterial3: true,
       ),
       home: const RigScreen(),
     );
   }
+}
+
+class _LostAudioBrand extends StatelessWidget {
+  const _LostAudioBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'LOST//AUDIO',
+          style: TextStyle(
+            color: LostChrome.ice,
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            fontStyle: FontStyle.italic,
+            letterSpacing: -0.9,
+            shadows: [
+              Shadow(color: LostChrome.electric, blurRadius: 9),
+              Shadow(color: Color(0xff2c55c9), offset: Offset(2, 2)),
+            ],
+          ),
+        ),
+        Text(
+          'PEDALBOARD // V0',
+          style: TextStyle(
+            color: LostChrome.lime,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChromeBackdrop extends StatelessWidget {
+  const _ChromeBackdrop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                LostChrome.midnight,
+                Color(0xff061d4a),
+                LostChrome.midnight
+              ],
+            ),
+          ),
+        ),
+        const IgnorePointer(
+          child: CustomPaint(painter: _ChromeRipplePainter()),
+        ),
+        Positioned(
+          top: -85,
+          right: -35,
+          child: _GlassOrb(size: 210, color: Color(0x3329b9ff)),
+        ),
+        Positioned(
+          bottom: 22,
+          left: -68,
+          child: _GlassOrb(size: 180, color: Color(0x222f7ee9)),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class _GlassOrb extends StatelessWidget {
+  const _GlassOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color.withValues(alpha: .95),
+              color.withValues(alpha: .08),
+              Colors.transparent
+            ],
+          ),
+          border: Border.all(color: LostChrome.ice.withValues(alpha: .2)),
+          boxShadow: [BoxShadow(color: color, blurRadius: 44)],
+        ),
+      );
+}
+
+class _ChromeRipplePainter extends CustomPainter {
+  const _ChromeRipplePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = LostChrome.ice.withValues(alpha: .16);
+    final path = Path()
+      ..moveTo(-30, size.height * .27)
+      ..cubicTo(size.width * .19, size.height * .06, size.width * .36,
+          size.height * .48, size.width * .58, size.height * .22)
+      ..cubicTo(size.width * .75, size.height * .02, size.width * .87,
+          size.height * .36, size.width + 30, size.height * .13);
+    canvas.drawPath(path, paint);
+    canvas.drawPath(path.shift(Offset(0, 9)),
+        paint..color = LostChrome.electric.withValues(alpha: .1));
+    canvas.drawCircle(Offset(size.width * .16, size.height * .78), 96,
+        paint..color = LostChrome.ice.withValues(alpha: .08));
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChromeRipplePainter oldDelegate) => false;
 }
 
 class RigScreen extends StatefulWidget {
@@ -71,160 +280,207 @@ class _RigScreenState extends State<RigScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Text('PEDAL',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Tuner',
-                    onPressed: _engine.connected ? _showTuner : null,
-                    icon: Icon(
-                      Icons.tune,
-                      color:
-                          _engine.tunerEnabled ? const Color(0xffb8ff79) : null,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _showTone3000,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                    label: const Text('TONE3000'),
-                  ),
-                  TextButton.icon(
-                    onPressed: _showAudioOutputs,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    icon: const Icon(Icons.volume_up_outlined, size: 18),
-                    label: const Text('OUTPUT'),
-                  ),
-                  const SizedBox(width: 6),
-                  Tooltip(
-                    message: _engine.connected ? 'Engine online' : 'Connecting',
-                    child: _StatusDot(connected: _engine.connected),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: _engine.connected ? _showPresets : null,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      body: _ChromeBackdrop(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
                   children: [
-                    Flexible(
-                      child: Text(
-                        _engine.presetTitle,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 30, fontWeight: FontWeight.w700),
+                    const _LostAudioBrand(),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Tuner',
+                      onPressed: _engine.connected ? _showTuner : null,
+                      icon: Icon(
+                        Icons.tune,
+                        color: _engine.tunerEnabled ? LostChrome.lime : null,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.expand_more, size: 22),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _engine.modelName,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: 16,
-                    color: Theme.of(context).colorScheme.secondary),
-              ),
-              const SizedBox(height: 6),
-              _MeterStrip(snapshot: _meters),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Pedalboard(
-                  snapshot: _engine,
-                  onSlotOpen: _showSlotControls,
-                  onSlotToggle: (slot, bypassed) => _toggleSlot(slot, bypassed),
-                  onEffectOpen: _showEffectControls,
-                  onEffectToggle: _toggleEffect,
-                  onLooperOpen: _showLooperControls,
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 58,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _showModelLibrary,
-                        icon: const Icon(Icons.library_music),
-                        label: const Text('TONES'),
+                    IconButton(
+                      tooltip:
+                          _previewPlaying ? 'Stop test audio' : 'Test audio',
+                      onPressed: _engine.connected && !_previewBusy
+                          ? _previewPlaying
+                              ? _stopPreview
+                              : _choosePreview
+                          : null,
+                      icon: _previewBusy
+                          ? const SizedBox.square(
+                              dimension: 17,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(_previewPlaying
+                              ? Icons.stop_circle_outlined
+                              : Icons.music_note),
+                    ),
+                    IconButton(
+                      tooltip: _engine.connected
+                          ? (_engine.bypassed ? 'Engage rig' : 'Bypass rig')
+                          : 'Reconnect engine',
+                      onPressed: _engine.connected
+                          ? () => _client.setBypass(!_engine.bypassed)
+                          : _client.connect,
+                      icon: Icon(
+                        Icons.power_settings_new,
+                        color: !_engine.connected
+                            ? LostChrome.ice
+                            : _engine.bypassed
+                                ? Theme.of(context).colorScheme.error
+                                : LostChrome.lime,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _engine.connected && !_previewBusy
-                            ? _previewPlaying
-                                ? _stopPreview
-                                : _choosePreview
-                            : null,
-                        icon: _previewBusy
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Icon(_previewPlaying
-                                ? Icons.stop
-                                : Icons.play_arrow),
-                        label: Text(_previewPlaying ? 'STOP' : 'TEST AUDIO'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: FilledButton.tonal(
-                        onPressed: _engine.connected
-                            ? () => _client.setBypass(!_engine.bypassed)
-                            : _client.connect,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _engine.bypassed
-                              ? Theme.of(context).colorScheme.errorContainer
-                              : Theme.of(context).colorScheme.primaryContainer,
+                    if (MediaQuery.sizeOf(context).width >= 600) ...[
+                      TextButton.icon(
+                        onPressed: _showTone3000,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                         ),
-                        child: Text(
-                          _engine.connected
-                              ? (_engine.bypassed
-                                  ? 'BYPASSED — ENGAGE'
-                                  : 'ENGAGED — BYPASS')
-                              : 'RECONNECT',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
+                        icon:
+                            const Icon(Icons.cloud_download_outlined, size: 18),
+                        label: const Text('T3K'),
                       ),
+                      TextButton.icon(
+                        onPressed: _showAudioOutputs,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        icon: const Icon(Icons.volume_up_outlined, size: 18),
+                        label: const Text('SND'),
+                      ),
+                    ] else ...[
+                      IconButton(
+                        tooltip: 'TONE3000',
+                        onPressed: _showTone3000,
+                        icon: const Icon(Icons.cloud_download_outlined),
+                      ),
+                      IconButton(
+                        tooltip: 'Output',
+                        onPressed: _showAudioOutputs,
+                        icon: const Icon(Icons.volume_up_outlined),
+                      ),
+                    ],
+                    const SizedBox(width: 6),
+                    Tooltip(
+                      message:
+                          _engine.connected ? 'Engine online' : 'Connecting',
+                      child: _StatusDot(connected: _engine.connected),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: _engine.connected ? _showPresets : null,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0x991a5eac),
+                          Color(0x774fc9ee),
+                          Color(0x992a5598)
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xffa9eaff)),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x6639bfff), blurRadius: 16)
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.album,
+                            size: 17, color: LostChrome.ice),
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text(
+                            _engine.presetTitle,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -.8,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        const Icon(Icons.expand_more,
+                            size: 22, color: LostChrome.ice),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _engine.modelName,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.secondary),
+                ),
+                const SizedBox(height: 6),
+                _MeterStrip(snapshot: _meters),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final boardHeight = math.max(
+                        118.0,
+                        constraints.maxHeight * .6,
+                      );
+                      final utilityHeight = math.max(
+                        90.0,
+                        constraints.maxHeight - boardHeight - 8,
+                      );
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: boardHeight,
+                                child: Pedalboard(
+                                  snapshot: _engine,
+                                  onSlotOpen: _showSlotControls,
+                                  onSlotToggle: (slot, bypassed) =>
+                                      _toggleSlot(slot, bypassed),
+                                  onEffectOpen: _showEffectControls,
+                                  onEffectToggle: _toggleEffect,
+                                  onLooperOpen: _showLooperControls,
+                                  onAddPedal: _showAddPedal,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: utilityHeight,
+                                child: _UtilityDeck(snapshot: _meters),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  void _showModelLibrary() {
+  void _showModelLibrary({ModelSlot? initialSlot}) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -236,6 +492,7 @@ class _RigScreenState extends State<RigScreen> {
           selectedPrePath: _engine.preModel,
           selectedAmpPath: _engine.model,
           onSelected: _client.selectModel,
+          initialSlot: initialSlot,
         ),
       ),
     );
@@ -552,9 +809,9 @@ class _RigScreenState extends State<RigScreen> {
           slot: slot,
           snapshot: _engine,
           onChanged: _client.setControl,
-          onClear: () {
+          onChangeTone: () {
             Navigator.pop(sheetContext);
-            _clearSlot(slot);
+            _showModelLibrary(initialSlot: slot);
           },
         ),
       ),
@@ -588,6 +845,13 @@ class _RigScreenState extends State<RigScreen> {
   }
 
   void _showEffectControls(EffectKind effect) {
+    final optionalPedal = switch (effect) {
+      EffectKind.eq => OptionalPedal.eq,
+      EffectKind.chorus => OptionalPedal.chorus,
+      EffectKind.delay => OptionalPedal.delay,
+      EffectKind.reverb => OptionalPedal.reverb,
+      EffectKind.gate || EffectKind.compressor => null,
+    };
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -597,6 +861,8 @@ class _RigScreenState extends State<RigScreen> {
           effect: effect,
           snapshot: _engine,
           onChanged: _client.setControl,
+          onRemove:
+              optionalPedal == null ? null : () => _removePedal(optionalPedal),
         ),
       ),
     );
@@ -608,17 +874,43 @@ class _RigScreenState extends State<RigScreen> {
       builder: (context) => LooperControlsSheet(
         mode: _engine.looperMode,
         onAction: _client.looperAction,
+        onRemove: () => _removePedal(OptionalPedal.looper),
       ),
     );
   }
 
-  Future<void> _clearSlot(ModelSlot slot) async {
-    final label = slot == ModelSlot.pre ? 'pedal' : 'amp';
+  void _showAddPedal() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .82,
+        child: AddPedalSheet(
+          snapshot: _engine,
+          onAdd: (pedal) async {
+            try {
+              await _client.setPedalVisible(pedal, true);
+              if (sheetContext.mounted) Navigator.pop(sheetContext);
+            } catch (error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text('$error')));
+              }
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _removePedal(OptionalPedal pedal) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Clear $label?'),
-        content: Text('Remove the current $label model from this rig?'),
+        title: Text('Remove ${pedal.label}?'),
+        content: const Text(
+          'It will disappear from this board. You can add it back later.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -626,21 +918,21 @@ class _RigScreenState extends State<RigScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('CLEAR'),
+            child: const Text('REMOVE'),
           ),
         ],
       ),
     );
-    if (confirmed != true) return;
-
+    if (confirmed != true) return false;
     try {
-      await _client.clearModel(slot);
+      await _client.setPedalVisible(pedal, false);
+      return true;
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
       }
+      return false;
     }
   }
 
@@ -670,6 +962,71 @@ class _RigScreenState extends State<RigScreen> {
 
 enum EffectKind { gate, compressor, eq, chorus, delay, reverb }
 
+enum OptionalPedal { eq, chorus, delay, reverb, looper }
+
+extension OptionalPedalDetails on OptionalPedal {
+  String get label => switch (this) {
+        OptionalPedal.eq => 'EQ',
+        OptionalPedal.chorus => 'CHORUS',
+        OptionalPedal.delay => 'DELAY',
+        OptionalPedal.reverb => 'REVERB',
+        OptionalPedal.looper => 'LOOPER',
+      };
+
+  String get description => switch (this) {
+        OptionalPedal.eq => 'Shape low, mid, and high frequencies',
+        OptionalPedal.chorus => 'Add width and movement',
+        OptionalPedal.delay => 'Repeat your signal over time',
+        OptionalPedal.reverb => 'Add space and decay',
+        OptionalPedal.looper => 'Capture and layer a performance',
+      };
+
+  IconData get icon => switch (this) {
+        OptionalPedal.eq => Icons.equalizer,
+        OptionalPedal.chorus => Icons.waves,
+        OptionalPedal.delay => Icons.repeat,
+        OptionalPedal.reverb => Icons.blur_on,
+        OptionalPedal.looper => Icons.loop,
+      };
+
+  PedalCategory get category => this == OptionalPedal.looper
+      ? PedalCategory.looper
+      : PedalCategory.effect;
+
+  EffectKind? get effect => switch (this) {
+        OptionalPedal.eq => EffectKind.eq,
+        OptionalPedal.chorus => EffectKind.chorus,
+        OptionalPedal.delay => EffectKind.delay,
+        OptionalPedal.reverb => EffectKind.reverb,
+        OptionalPedal.looper => null,
+      };
+}
+
+enum PedalCategory { utility, nam, effect, looper }
+
+extension PedalCategoryDetails on PedalCategory {
+  String get label => switch (this) {
+        PedalCategory.utility => 'UTILITY',
+        PedalCategory.nam => 'NAM',
+        PedalCategory.effect => 'EFFECT',
+        PedalCategory.looper => 'LOOPER',
+      };
+
+  Color get color => switch (this) {
+        PedalCategory.utility => const Color(0xff18bfc7),
+        PedalCategory.nam => const Color(0xff2679ec),
+        PedalCategory.effect => const Color(0xff506bd6),
+        PedalCategory.looper => const Color(0xff68bb76),
+      };
+
+  IconData get icon => switch (this) {
+        PedalCategory.utility => Icons.tune,
+        PedalCategory.nam => Icons.memory,
+        PedalCategory.effect => Icons.auto_awesome,
+        PedalCategory.looper => Icons.loop,
+      };
+}
+
 extension EffectKindDetails on EffectKind {
   String get wireName => name;
 
@@ -692,12 +1049,12 @@ extension EffectKindDetails on EffectKind {
       };
 
   Color get color => switch (this) {
-        EffectKind.gate => const Color(0xff6874c9),
-        EffectKind.compressor => const Color(0xffdb5c8d),
-        EffectKind.eq => const Color(0xff41a99a),
-        EffectKind.chorus => const Color(0xff4267bf),
-        EffectKind.delay => const Color(0xffd68742),
-        EffectKind.reverb => const Color(0xff9567c7),
+        EffectKind.gate => const Color(0xff1c5cc4),
+        EffectKind.compressor => const Color(0xff1d8ccf),
+        EffectKind.eq => const Color(0xff18b1be),
+        EffectKind.chorus => const Color(0xff315ccf),
+        EffectKind.delay => const Color(0xff147cd1),
+        EffectKind.reverb => const Color(0xff5466cf),
       };
 }
 
@@ -709,6 +1066,7 @@ class Pedalboard extends StatelessWidget {
     required this.onEffectOpen,
     required this.onEffectToggle,
     required this.onLooperOpen,
+    required this.onAddPedal,
     super.key,
   });
 
@@ -718,105 +1076,235 @@ class Pedalboard extends StatelessWidget {
   final ValueChanged<EffectKind> onEffectOpen;
   final Future<void> Function(EffectKind, bool) onEffectToggle;
   final VoidCallback onLooperOpen;
+  final VoidCallback onAddPedal;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final tileHeight =
+              (constraints.maxHeight - 42).clamp(72.0, 126.0).toDouble();
+          _PedalTile effectTile(EffectKind effect) => _PedalTile(
+                label: effect.label,
+                category:
+                    effect == EffectKind.gate || effect == EffectKind.compressor
+                        ? PedalCategory.utility
+                        : PedalCategory.effect,
+                status: snapshot.effectEnabled(effect) ? 'ON' : 'BYPASS',
+                icon: effect.icon,
+                active: snapshot.effectEnabled(effect),
+                height: tileHeight,
+                disabled: !snapshot.connected,
+                onTap: () => onEffectOpen(effect),
+                onFootswitch: () =>
+                    onEffectToggle(effect, snapshot.effectEnabled(effect)),
+              );
+          final optionalPedals = OptionalPedal.values
+              .where(snapshot.pedalVisible)
+              .toList(growable: false);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xee0d3265),
+                    Color(0xee08204b),
+                    Color(0xee12508d)
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xff9deaff), width: 1.4),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x6628baff), blurRadius: 18),
+                  BoxShadow(
+                      color: Color(0x77000418),
+                      offset: Offset(0, 7),
+                      blurRadius: 9),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(12, 7, 12, 2),
+                    child: Row(
+                      children: [
+                        Icon(Icons.cable, size: 14, color: LostChrome.lime),
+                        SizedBox(width: 5),
+                        Text('SIGNAL PATH',
+                            style: TextStyle(
+                              color: LostChrome.ice,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.4,
+                              fontSize: 11,
+                            )),
+                        Spacer(),
+                        Text('SWIPE TO EXPLORE',
+                            style: TextStyle(
+                                color: Color(0xff9ed9ff), fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Scrollbar(
+                      child: Semantics(
+                        label: 'Scrollable pedal signal path',
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.fromLTRB(9, 3, 9, 16),
+                          children: [
+                            effectTile(EffectKind.gate),
+                            const _SignalArrow(),
+                            effectTile(EffectKind.compressor),
+                            const _SignalArrow(),
+                            _PedalTile(
+                              label: 'DRIVE NAM',
+                              category: PedalCategory.nam,
+                              status: snapshot.preModel == null
+                                  ? 'EMPTY'
+                                  : snapshot.preBypassed
+                                      ? 'BYPASS'
+                                      : 'ON',
+                              icon: Icons.bolt,
+                              active: snapshot.preModel != null &&
+                                  !snapshot.preBypassed,
+                              height: tileHeight,
+                              disabled: !snapshot.connected,
+                              onTap: () => onSlotOpen(ModelSlot.pre),
+                              onFootswitch: () => onSlotToggle(
+                                  ModelSlot.pre, !snapshot.preBypassed),
+                            ),
+                            const _SignalArrow(),
+                            _PedalTile(
+                              label: 'AMP NAM',
+                              category: PedalCategory.nam,
+                              status: snapshot.model == null
+                                  ? 'EMPTY'
+                                  : snapshot.ampBypassed
+                                      ? 'BYPASS'
+                                      : 'ON',
+                              icon: Icons.speaker,
+                              active: snapshot.model != null &&
+                                  !snapshot.ampBypassed,
+                              height: tileHeight,
+                              disabled: !snapshot.connected,
+                              onTap: () => onSlotOpen(ModelSlot.amp),
+                              onFootswitch: () => onSlotToggle(
+                                  ModelSlot.amp, !snapshot.ampBypassed),
+                            ),
+                            for (final pedal in optionalPedals) ...[
+                              const _SignalArrow(),
+                              if (pedal.effect case final effect?)
+                                effectTile(effect),
+                              if (pedal == OptionalPedal.looper)
+                                _PedalTile(
+                                  label: 'LOOPER',
+                                  category: PedalCategory.looper,
+                                  status: snapshot.looperMode.toUpperCase(),
+                                  icon: Icons.loop,
+                                  active: snapshot.looperMode != 'stopped',
+                                  height: tileHeight,
+                                  disabled: !snapshot.connected,
+                                  onTap: onLooperOpen,
+                                  onFootswitch: onLooperOpen,
+                                ),
+                            ],
+                            const _SignalArrow(),
+                            _AddPedalTile(
+                              height: tileHeight,
+                              disabled: !snapshot.connected,
+                              onTap: onAddPedal,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+}
+
+class _AddPedalTile extends StatelessWidget {
+  const _AddPedalTile({
+    required this.height,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  final double height;
+  final bool disabled;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final postNamEffects = [
-      EffectKind.eq,
-      EffectKind.chorus,
-      EffectKind.delay,
-      EffectKind.reverb,
-    ];
-    _PedalTile effectTile(EffectKind effect) => _PedalTile(
-          label: effect.label,
-          sublabel: snapshot.effectEnabled(effect) ? 'ON' : 'BYPASS',
-          icon: effect.icon,
-          color: effect.color,
-          active: snapshot.effectEnabled(effect),
-          disabled: !snapshot.connected,
-          onTap: () => onEffectOpen(effect),
-          onFootswitch: () =>
-              onEffectToggle(effect, snapshot.effectEnabled(effect)),
-        );
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xff171330),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xff564c81), width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 7)],
-      ),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 7, 12, 2),
-            child: Row(
-              children: [
-                Icon(Icons.cable, size: 14, color: Color(0xffa6ffdd)),
-                SizedBox(width: 5),
-                Text('SIGNAL PATH',
+    final compact = height < 108;
+    final dense = height < 90;
+    return SizedBox(
+      width: dense
+          ? 72
+          : compact
+              ? 82
+              : 100,
+      height: height,
+      child: Opacity(
+        opacity: disabled ? .5 : 1,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(13),
+            onTap: disabled ? null : onTap,
+            child: Container(
+              margin: EdgeInsets.symmetric(vertical: dense ? 2 : 3),
+              decoration: BoxDecoration(
+                color: const Color(0x331a72ba),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(
+                  color: LostChrome.electric.withValues(alpha: .75),
+                  width: 1.4,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_circle_outline,
+                      color: LostChrome.electric, size: dense ? 20 : 30),
+                  SizedBox(height: dense ? 2 : 5),
+                  Text(
+                    'ADD',
                     style: TextStyle(
-                      color: Color(0xffa6ffdd),
+                      color: LostChrome.pearl,
+                      fontSize: dense
+                          ? 9
+                          : compact
+                              ? 11
+                              : 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  Text(
+                    'PEDAL',
+                    style: TextStyle(
+                      color: LostChrome.ice.withValues(alpha: .75),
+                      fontSize: dense
+                          ? 7
+                          : compact
+                              ? 8
+                              : 9,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 1.4,
-                      fontSize: 11,
-                    )),
-                Spacer(),
-                Text('TAP PEDAL TO EDIT',
-                    style: TextStyle(color: Color(0xff9a94bd), fontSize: 10)),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(9, 3, 9, 8),
-              children: [
-                effectTile(EffectKind.gate),
-                const _SignalArrow(),
-                effectTile(EffectKind.compressor),
-                const _SignalArrow(),
-                _PedalTile(
-                  label: 'NAM',
-                  sublabel: 'DRIVE',
-                  icon: Icons.bolt,
-                  color: const Color(0xffc15062),
-                  active: snapshot.preModel != null && !snapshot.preBypassed,
-                  disabled: !snapshot.connected,
-                  onTap: () => onSlotOpen(ModelSlot.pre),
-                  onFootswitch: () =>
-                      onSlotToggle(ModelSlot.pre, !snapshot.preBypassed),
-                ),
-                const _SignalArrow(),
-                _PedalTile(
-                  label: 'NAM',
-                  sublabel: 'AMP',
-                  icon: Icons.speaker,
-                  color: const Color(0xffd08a3c),
-                  active: snapshot.model != null && !snapshot.ampBypassed,
-                  disabled: !snapshot.connected,
-                  onTap: () => onSlotOpen(ModelSlot.amp),
-                  onFootswitch: () =>
-                      onSlotToggle(ModelSlot.amp, !snapshot.ampBypassed),
-                ),
-                for (final effect in postNamEffects) ...[
-                  const _SignalArrow(),
-                  effectTile(effect),
+                      letterSpacing: .8,
+                    ),
+                  ),
                 ],
-                const _SignalArrow(),
-                _PedalTile(
-                  label: 'LOOPER',
-                  sublabel: snapshot.looperMode.toUpperCase(),
-                  icon: Icons.loop,
-                  color: const Color(0xff49b36b),
-                  active: snapshot.looperMode != 'stopped',
-                  disabled: !snapshot.connected,
-                  onTap: onLooperOpen,
-                  onFootswitch: onLooperOpen,
-                ),
-              ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -828,56 +1316,87 @@ class _SignalArrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const SizedBox(
         width: 18,
-        child: Icon(Icons.chevron_right, size: 18, color: Color(0xff6d6592)),
+        child: Icon(Icons.chevron_right, size: 18, color: Color(0xff9eeaff)),
       );
 }
 
 class _PedalTile extends StatelessWidget {
   const _PedalTile({
     required this.label,
-    required this.sublabel,
+    required this.category,
+    required this.status,
     required this.icon,
-    required this.color,
     required this.active,
+    required this.height,
     required this.disabled,
     required this.onTap,
     required this.onFootswitch,
   });
 
   final String label;
-  final String sublabel;
+  final PedalCategory category;
+  final String status;
   final IconData icon;
-  final Color color;
   final bool active;
+  final double height;
   final bool disabled;
   final VoidCallback onTap;
   final VoidCallback onFootswitch;
 
   @override
   Widget build(BuildContext context) {
-    final face = active ? color : const Color(0xff3c3858);
+    final compact = height < 108;
+    final dense = height < 90;
+    final face = active ? category.color : const Color(0xff123968);
     return SizedBox(
-      width: 86,
+      width: dense
+          ? 88
+          : compact
+              ? 105
+              : 124,
+      height: height,
       child: Opacity(
         opacity: disabled ? 0.5 : 1,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(13),
             onTap: disabled ? null : onTap,
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 3),
-              padding: const EdgeInsets.fromLTRB(7, 7, 7, 6),
+              margin: EdgeInsets.symmetric(vertical: dense ? 2 : 3),
+              padding: EdgeInsets.fromLTRB(
+                dense
+                    ? 5
+                    : compact
+                        ? 7
+                        : 9,
+                dense ? 4 : 7,
+                dense
+                    ? 5
+                    : compact
+                        ? 7
+                        : 9,
+                dense ? 4 : 7,
+              ),
               decoration: BoxDecoration(
-                color: face,
-                borderRadius: BorderRadius.circular(9),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    face.withValues(alpha: .98),
+                    face.withValues(alpha: .62),
+                    const Color(0xff09275b),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(13),
                 border: Border.all(
-                    color: active ? Colors.white70 : const Color(0xff766d99)),
+                    color: active ? LostChrome.pearl : const Color(0xff6ca6dd)),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                        active ? color.withValues(alpha: 0.55) : Colors.black54,
-                    blurRadius: active ? 9 : 3,
+                    color: active
+                        ? LostChrome.electric.withValues(alpha: 0.55)
+                        : Colors.black54,
+                    blurRadius: active ? 13 : 5,
                     offset: const Offset(0, 3),
                   ),
                 ],
@@ -886,50 +1405,127 @@ class _PedalTile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(icon, size: 17, color: Colors.white),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: dense ? 3 : 5, vertical: dense ? 1 : 2),
+                        decoration: BoxDecoration(
+                          color: category.color.withValues(alpha: .32),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                              color: category.color.withValues(alpha: .8)),
+                        ),
+                        child: Text(
+                          category.label,
+                          style: TextStyle(
+                            color: LostChrome.pearl,
+                            fontSize: dense ? 6 : 7,
+                            letterSpacing: dense ? .3 : .6,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
                       const Spacer(),
                       Container(
-                        width: 7,
-                        height: 7,
+                        width: dense ? 5 : 7,
+                        height: dense ? 5 : 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: active
-                              ? const Color(0xffb8ff79)
-                              : const Color(0xff27243b),
+                              ? LostChrome.lime
+                              : const Color(0xff071a3a),
                           boxShadow: active
                               ? const [
                                   BoxShadow(
-                                      color: Color(0xffb8ff79), blurRadius: 5)
+                                      color: LostChrome.lime, blurRadius: 7)
                                 ]
                               : null,
                         ),
                       ),
                     ],
                   ),
-                  const Spacer(),
+                  SizedBox(
+                      height: dense
+                          ? 1
+                          : compact
+                              ? 3
+                              : 6),
+                  Icon(icon,
+                      size: dense
+                          ? 17
+                          : compact
+                              ? 23
+                              : 31,
+                      color: LostChrome.pearl),
+                  SizedBox(
+                      height: dense
+                          ? 0
+                          : compact
+                              ? 2
+                              : 4),
                   Text(label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w900, fontSize: 12)),
-                  Text(sublabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 9, letterSpacing: 0.7)),
-                  const SizedBox(height: 6),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: dense
+                              ? 9
+                              : compact
+                                  ? 11
+                                  : 14,
+                          letterSpacing: compact ? 0 : .2)),
+                  if (!dense)
+                    Text(status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: active
+                              ? LostChrome.lime
+                              : LostChrome.ice.withValues(alpha: .75),
+                          fontSize: compact ? 8 : 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .8,
+                        )),
+                  const Spacer(),
                   InkWell(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(7),
                     onTap: disabled ? null : onFootswitch,
                     child: Container(
-                      height: 20,
+                      height: dense
+                          ? 15
+                          : compact
+                              ? 22
+                              : 28,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: const Color(0xffded9c4),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xff4a4557)),
+                        gradient: const LinearGradient(
+                          colors: [
+                            LostChrome.pearl,
+                            Color(0xff82bce4),
+                            Color(0xffe9fbff),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: const Color(0xffdfffff)),
                       ),
-                      child: const Icon(Icons.circle,
-                          size: 11, color: Color(0xff504b5d)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.power_settings_new,
+                              size: dense ? 9 : 13,
+                              color: const Color(0xff16447f)),
+                          if (!compact) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              active ? 'ON' : 'OFF',
+                              style: const TextStyle(
+                                color: Color(0xff16447f),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1004,6 +1600,41 @@ class _PresetLibrarySheetState extends State<PresetLibrarySheet> {
     final name = await _askName('Save current rig', widget.suggestedName);
     if (name == null || name.isEmpty) return;
     await _run(null, () => widget.client.savePreset(name));
+  }
+
+  Future<void> _newPreset() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start a new preset?'),
+        content: const Text(
+          'This clears the current NAM models and optional pedals. Saved presets stay safe.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('START NEW'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() {
+      _busyId = 'new';
+      _error = null;
+    });
+    try {
+      await widget.client.newPreset();
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
   }
 
   Future<void> _load(PresetSummary preset) async {
@@ -1149,10 +1780,93 @@ class _PresetLibrarySheetState extends State<PresetLibrarySheet> {
                 },
               ),
             ),
-            FilledButton.icon(
-              onPressed: _busyId == null ? _saveCurrent : null,
-              icon: const Icon(Icons.save),
-              label: const Text('SAVE CURRENT RIG'),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busyId == null ? _newPreset : null,
+                    icon: const Icon(Icons.add),
+                    label: const Text('NEW PRESET'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton.icon(
+                    onPressed: _busyId == null ? _saveCurrent : null,
+                    icon: const Icon(Icons.save),
+                    label: const Text('SAVE CURRENT RIG'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AddPedalSheet extends StatelessWidget {
+  const AddPedalSheet({
+    required this.snapshot,
+    required this.onAdd,
+    super.key,
+  });
+
+  final EngineSnapshot snapshot;
+  final Future<void> Function(OptionalPedal pedal) onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.add_circle_outline,
+                    color: LostChrome.electric),
+                const SizedBox(width: 8),
+                Text('ADD A PEDAL',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Text(
+              'Effects are added after your amp and saved with this preset.',
+              style: TextStyle(color: LostChrome.ice),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final pedal in OptionalPedal.values)
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      leading: CircleAvatar(
+                        backgroundColor:
+                            pedal.category.color.withValues(alpha: .28),
+                        child: Icon(pedal.icon, color: LostChrome.pearl),
+                      ),
+                      title: Text(pedal.label),
+                      subtitle: Text(pedal.description),
+                      trailing: snapshot.pedalVisible(pedal)
+                          ? const Chip(label: Text('ON BOARD'))
+                          : const Icon(Icons.add_circle_outline),
+                      enabled: !snapshot.pedalVisible(pedal),
+                      onTap: snapshot.pedalVisible(pedal)
+                          ? null
+                          : () => onAdd(pedal),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1166,14 +1880,14 @@ class SlotControlsSheet extends StatefulWidget {
     required this.slot,
     required this.snapshot,
     required this.onChanged,
-    required this.onClear,
+    required this.onChangeTone,
     super.key,
   });
 
   final ModelSlot slot;
   final EngineSnapshot snapshot;
   final Future<void> Function(String, double) onChanged;
-  final VoidCallback onClear;
+  final VoidCallback onChangeTone;
 
   @override
   State<SlotControlsSheet> createState() => _SlotControlsSheetState();
@@ -1257,9 +1971,9 @@ class _SlotControlsSheetState extends State<SlotControlsSheet> {
               ),
             ),
             OutlinedButton.icon(
-              onPressed: widget.onClear,
-              icon: const Icon(Icons.delete_outline),
-              label: Text('CLEAR $label MODEL'),
+              onPressed: widget.onChangeTone,
+              icon: const Icon(Icons.library_music),
+              label: const Text('CHANGE TONE'),
             ),
           ],
         ),
@@ -1273,12 +1987,14 @@ class EffectControlsSheet extends StatefulWidget {
     required this.effect,
     required this.snapshot,
     required this.onChanged,
+    this.onRemove,
     super.key,
   });
 
   final EffectKind effect;
   final EngineSnapshot snapshot;
   final Future<void> Function(String, double) onChanged;
+  final Future<bool> Function()? onRemove;
 
   @override
   State<EffectControlsSheet> createState() => _EffectControlsSheetState();
@@ -1363,7 +2079,7 @@ class _EffectControlsSheetState extends State<EffectControlsSheet> {
               ],
             ),
             const Text('Settings are saved with your preset.',
-                style: TextStyle(color: Color(0xffaaa5c4))),
+                style: TextStyle(color: Color(0xffa2d5f5))),
             const SizedBox(height: 8),
             Expanded(
               child: ListView(
@@ -1379,6 +2095,18 @@ class _EffectControlsSheetState extends State<EffectControlsSheet> {
                 ],
               ),
             ),
+            if (widget.onRemove != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final navigator = Navigator.of(context);
+                  final removed = await widget.onRemove!();
+                  if (removed && mounted) navigator.pop();
+                },
+                icon: const Icon(Icons.remove_circle_outline),
+                label: const Text('REMOVE FROM BOARD'),
+              ),
+            ],
           ],
         ),
       ),
@@ -1388,10 +2116,14 @@ class _EffectControlsSheetState extends State<EffectControlsSheet> {
 
 class LooperControlsSheet extends StatelessWidget {
   const LooperControlsSheet(
-      {required this.mode, required this.onAction, super.key});
+      {required this.mode,
+      required this.onAction,
+      required this.onRemove,
+      super.key});
 
   final String mode;
   final Future<void> Function(String) onAction;
+  final Future<bool> Function() onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -1417,7 +2149,7 @@ class LooperControlsSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(children: [
-              const Icon(Icons.loop, color: Color(0xffb8ff79)),
+              const Icon(Icons.loop, color: LostChrome.lime),
               const SizedBox(width: 8),
               const Text('30 SECOND LOOPER',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
@@ -1428,7 +2160,7 @@ class LooperControlsSheet extends StatelessWidget {
             ]),
             Text(
                 'Now: ${mode.toUpperCase()}  •  loop audio clears after a restart',
-                style: const TextStyle(color: Color(0xffaaa5c4))),
+                style: const TextStyle(color: Color(0xffa2d5f5))),
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,
@@ -1452,6 +2184,15 @@ class LooperControlsSheet extends StatelessWidget {
                     icon: const Icon(Icons.stop),
                     label: const Text('STOP')),
               ],
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final removed = await onRemove();
+                if (removed && context.mounted) Navigator.pop(context);
+              },
+              icon: const Icon(Icons.remove_circle_outline),
+              label: const Text('REMOVE FROM BOARD'),
             ),
           ],
         ),
@@ -1487,7 +2228,7 @@ class _TunerSheetState extends State<TunerSheet> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.tune, color: Color(0xffb8ff79)),
+                    const Icon(Icons.tune, color: LostChrome.lime),
                     const SizedBox(width: 8),
                     const Text('CLEAN INPUT TUNER',
                         style: TextStyle(
@@ -1502,15 +2243,16 @@ class _TunerSheetState extends State<TunerSheet> {
                 ),
                 const Text(
                     'Listens before NAM and effects. Your sound stays unchanged.',
-                    style: TextStyle(color: Color(0xffaaa5c4))),
+                    style: TextStyle(color: Color(0xffa2d5f5))),
                 const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xff171330),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xee0f407c), Color(0xee081a43)],
+                    ),
                     borderRadius: BorderRadius.circular(14),
-                    border:
-                        Border.all(color: const Color(0xff564c81), width: 2),
+                    border: Border.all(color: LostChrome.ice, width: 1.3),
                   ),
                   child: Column(
                     children: [
@@ -1519,7 +2261,7 @@ class _TunerSheetState extends State<TunerSheet> {
                             fontSize: 55,
                             height: 1,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xfff2eedf),
+                            color: LostChrome.pearl,
                           )),
                       const SizedBox(height: 6),
                       Text(
@@ -1527,7 +2269,7 @@ class _TunerSheetState extends State<TunerSheet> {
                             ? 'PLAY ONE STRING'
                             : '${reading.frequency.toStringAsFixed(1)} Hz  •  ${reading.cents >= 0 ? '+' : ''}${reading.cents.round()} cents',
                         style: const TextStyle(
-                          color: Color(0xffb8ff79),
+                          color: LostChrome.lime,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.8,
                         ),
@@ -1542,13 +2284,13 @@ class _TunerSheetState extends State<TunerSheet> {
                         children: const [
                           Text('FLAT',
                               style: TextStyle(
-                                  fontSize: 10, color: Color(0xffaaa5c4))),
+                                  fontSize: 10, color: Color(0xffa2d5f5))),
                           Text('IN TUNE',
                               style: TextStyle(
-                                  fontSize: 10, color: Color(0xffaaa5c4))),
+                                  fontSize: 10, color: Color(0xffa2d5f5))),
                           Text('SHARP',
                               style: TextStyle(
-                                  fontSize: 10, color: Color(0xffaaa5c4))),
+                                  fontSize: 10, color: Color(0xffa2d5f5))),
                         ],
                       ),
                     ],
@@ -1576,7 +2318,7 @@ class _TunerSheetState extends State<TunerSheet> {
                   _tuning.notes.join('  '),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Color(0xffa6ffdd),
+                    color: LostChrome.ice,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.1,
                   ),
@@ -1608,24 +2350,21 @@ class _TunerNeedle extends StatelessWidget {
           Container(
               height: 4,
               decoration: BoxDecoration(
-                  color: const Color(0xff504a70),
+                  color: const Color(0xff20528c),
                   borderRadius: BorderRadius.circular(4))),
-          Container(width: 2, height: 18, color: const Color(0xfff2eedf)),
+          Container(width: 2, height: 18, color: LostChrome.pearl),
           Align(
             alignment: Alignment(x, 0),
             child: Container(
               width: 15,
               height: 15,
               decoration: BoxDecoration(
-                color:
-                    inTune ? const Color(0xffb8ff79) : const Color(0xffffc45e),
+                color: inTune ? LostChrome.lime : LostChrome.ice,
                 shape: BoxShape.circle,
                 boxShadow: hasSignal
                     ? [
                         BoxShadow(
-                            color: inTune
-                                ? const Color(0xffb8ff79)
-                                : const Color(0xffffc45e),
+                            color: inTune ? LostChrome.lime : LostChrome.ice,
                             blurRadius: 8)
                       ]
                     : null,
@@ -1776,6 +2515,7 @@ class ModelLibrarySheet extends StatefulWidget {
     required this.selectedPrePath,
     required this.selectedAmpPath,
     required this.onSelected,
+    this.initialSlot,
     super.key,
   });
 
@@ -1784,6 +2524,7 @@ class ModelLibrarySheet extends StatefulWidget {
   final String? selectedPrePath;
   final String? selectedAmpPath;
   final Future<void> Function(CatalogModel, ModelSlot) onSelected;
+  final ModelSlot? initialSlot;
 
   @override
   State<ModelLibrarySheet> createState() => _ModelLibrarySheetState();
@@ -1803,6 +2544,10 @@ class _ModelLibrarySheetState extends State<ModelLibrarySheet> {
   void _refresh() => setState(() => _models = widget.catalog.refreshAndList());
 
   Future<void> _chooseSlot(CatalogModel model) async {
+    if (widget.initialSlot case final slot?) {
+      await _select(model, slot);
+      return;
+    }
     final slot = await showDialog<ModelSlot>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1864,6 +2609,7 @@ class _ModelLibrarySheetState extends State<ModelLibrarySheet> {
                         catalog: widget.catalog,
                         engineConnected: widget.engineConnected,
                         onSelected: widget.onSelected,
+                        initialSlot: widget.initialSlot,
                       ),
                     ),
                   ),
@@ -1968,12 +2714,14 @@ class Tone3000BrowserSheet extends StatefulWidget {
     required this.catalog,
     required this.engineConnected,
     required this.onSelected,
+    this.initialSlot,
     super.key,
   });
 
   final CatalogClient catalog;
   final bool engineConnected;
   final Future<void> Function(CatalogModel, ModelSlot) onSelected;
+  final ModelSlot? initialSlot;
 
   @override
   State<Tone3000BrowserSheet> createState() => _Tone3000BrowserSheetState();
@@ -2082,23 +2830,24 @@ class _Tone3000BrowserSheetState extends State<Tone3000BrowserSheet> {
         );
         return;
       }
-      final slot = await showDialog<ModelSlot>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(model.name),
-          content: const Text('Downloaded. Where should this model run?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, ModelSlot.pre),
-              child: const Text('PEDAL'),
+      final slot = widget.initialSlot ??
+          await showDialog<ModelSlot>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(model.name),
+              content: const Text('Downloaded. Where should this model run?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, ModelSlot.pre),
+                  child: const Text('PEDAL'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, ModelSlot.amp),
+                  child: const Text('AMP'),
+                ),
+              ],
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, ModelSlot.amp),
-              child: const Text('AMP'),
-            ),
-          ],
-        ),
-      );
+          );
       if (slot != null) {
         await widget.onSelected(model, slot);
         if (mounted) Navigator.of(context).pop();
@@ -2279,10 +3028,680 @@ class _StatusDot extends StatelessWidget {
       height: 10,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: connected ? Colors.greenAccent : Colors.orangeAccent,
+        color: connected ? LostChrome.lime : LostChrome.ice,
+        boxShadow: [
+          BoxShadow(
+            color: connected ? LostChrome.lime : LostChrome.ice,
+            blurRadius: 8,
+          ),
+        ],
       ),
     );
   }
+}
+
+class _UtilityDeck extends StatelessWidget {
+  const _UtilityDeck({required this.snapshot});
+
+  final MeterSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _ChromeUtilityPanel(
+            title: 'INPUT SCOPE',
+            detail: 'LIVE // PRE NAM',
+            icon: Icons.graphic_eq,
+            accent: LostChrome.electric,
+            child: CustomPaint(
+              painter: _AudioScopePainter(
+                inputDb: snapshot.inputDb,
+                outputDb: snapshot.outputDb,
+                clipped: snapshot.clipped,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Expanded(child: _AeroLagoonTank()),
+      ],
+    );
+  }
+}
+
+class _ChromeUtilityPanel extends StatelessWidget {
+  const _ChromeUtilityPanel({
+    required this.title,
+    required this.detail,
+    required this.icon,
+    required this.accent,
+    required this.child,
+  });
+
+  final String title;
+  final String detail;
+  final IconData icon;
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xe6113a72),
+            const Color(0xe608214c),
+            accent.withValues(alpha: .24),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: LostChrome.ice.withValues(alpha: .8)),
+        boxShadow: [
+          BoxShadow(color: accent.withValues(alpha: .3), blurRadius: 13),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 13, color: accent),
+                const SizedBox(width: 5),
+                Text(title,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      letterSpacing: 1.1,
+                      fontWeight: FontWeight.w900,
+                    )),
+                const Spacer(),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: accent, blurRadius: 6)],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(detail,
+                style: TextStyle(
+                    color: LostChrome.ice.withValues(alpha: .62),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .8,
+                    fontSize: 7)),
+            const SizedBox(height: 4),
+            Expanded(child: child),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _CyberFishShape { glider, prism, byte }
+
+class _LagoonFish {
+  const _LagoonFish({
+    required this.shape,
+    required this.color,
+    required this.fromLeft,
+    required this.lane,
+    required this.delay,
+    required this.travel,
+    required this.scale,
+  });
+
+  final _CyberFishShape shape;
+  final Color color;
+  final bool fromLeft;
+  final double lane;
+  final double delay;
+  final double travel;
+  final double scale;
+}
+
+class _AeroLagoonTank extends StatefulWidget {
+  const _AeroLagoonTank();
+
+  @override
+  State<_AeroLagoonTank> createState() => _AeroLagoonTankState();
+}
+
+class _AeroLagoonTankState extends State<_AeroLagoonTank>
+    with SingleTickerProviderStateMixin {
+  final _random = math.Random();
+  late final AnimationController _controller;
+  late List<_LagoonFish> _fish;
+
+  @override
+  void initState() {
+    super.initState();
+    _fish = _spawnFish();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() => _fish = _spawnFish());
+          _controller.forward(from: 0);
+        }
+      });
+    _controller.forward();
+  }
+
+  List<_LagoonFish> _spawnFish() {
+    const colors = [
+      Color(0xff2bbdff),
+      Color(0xffff5c70),
+      Color(0xffff963d),
+    ];
+    final count = 1 + _random.nextInt(2);
+    return List.generate(
+      count,
+      (index) => _LagoonFish(
+        shape: _CyberFishShape
+            .values[_random.nextInt(_CyberFishShape.values.length)],
+        color: colors[_random.nextInt(colors.length)],
+        fromLeft: _random.nextBool(),
+        lane: .18 + _random.nextDouble() * .58,
+        // Every fish finishes offscreen before the next scene is seeded.
+        // That keeps the handoff invisible even on a slow display.
+        delay: index == 0 ? 0 : .13 + _random.nextDouble() * .12,
+        travel: .45 + _random.nextDouble() * .10,
+        scale: .72 + _random.nextDouble() * .25,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: LostChrome.ice.withValues(alpha: .9)),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(color: Color(0x8029b9ff), blurRadius: 15),
+          ],
+        ),
+        child: Stack(
+          children: [
+            RepaintBoundary(
+              child: CustomPaint(
+                painter: _AeroLagoonPainter(
+                  progress: _controller,
+                  fish: _fish,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            IgnorePointer(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xaa073b7e),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: LostChrome.ice),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.waves, size: 11, color: LostChrome.pearl),
+                          SizedBox(width: 4),
+                          Text('AERO LAGOON',
+                              style: TextStyle(
+                                color: LostChrome.pearl,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .9,
+                              )),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    const _LagoonStatus(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LagoonStatus extends StatelessWidget {
+  const _LagoonStatus();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xaa073b7e),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: LostChrome.ice.withValues(alpha: .8)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.circle, color: LostChrome.lime, size: 7),
+            SizedBox(width: 3),
+            Text('AQUA',
+                style: TextStyle(
+                  color: LostChrome.pearl,
+                  fontSize: 7,
+                  letterSpacing: .7,
+                  fontWeight: FontWeight.w900,
+                )),
+          ],
+        ),
+      );
+}
+
+class _AeroLagoonPainter extends CustomPainter {
+  const _AeroLagoonPainter({required this.progress, required this.fish})
+      : super(repaint: progress);
+
+  final Animation<double> progress;
+  final List<_LagoonFish> fish;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Keep almost the entire window usable as water, with only a thin sky
+    // band above the waterline.
+    final waterTop = size.height * .10;
+    final sky = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xff79ddff), Color(0xffd9f9ff)],
+      ).createShader(Offset.zero & Size(size.width, waterTop));
+    canvas.drawRect(Offset.zero & size, sky);
+
+    _cloud(canvas, Offset(size.width * .18, size.height * .16), 1);
+    _cloud(canvas, Offset(size.width * .77, size.height * .25), .62);
+
+    final water = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xbb8ce9ff), Color(0xdd1caee0), Color(0xee0870b8)],
+      ).createShader(Rect.fromLTWH(0, waterTop, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, waterTop, size.width, size.height), water);
+    // Keep the field rooted in the bottom forty percent of the aquarium,
+    // like a bright old Windows landscape behind the swimming area.
+    _hill(canvas, size, .76, const Color(0xffa8ee62), size.height * .55,
+        size.height);
+    _hill(canvas, size, .32, const Color(0xff4fc34c), size.height * .66,
+        size.height);
+    _plants(canvas, size);
+    _waterLines(canvas, size, waterTop);
+    _bubbles(canvas, size, waterTop, progress.value);
+    for (final swimmer in fish) {
+      _drawFish(canvas, size, waterTop, swimmer, progress.value);
+    }
+    final shine = Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.white.withValues(alpha: .42), Colors.transparent],
+      ).createShader(Rect.fromLTWH(0, 0, size.width * .22, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), shine);
+  }
+
+  void _cloud(Canvas canvas, Offset center, double scale) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: .72)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawOval(
+        Rect.fromCenter(center: center, width: 48 * scale, height: 14 * scale),
+        paint);
+    canvas.drawCircle(
+        center + Offset(4 * scale, -7 * scale), 10 * scale, paint);
+    canvas.drawCircle(
+        center + Offset(-11 * scale, -4 * scale), 7 * scale, paint);
+  }
+
+  void _hill(
+    Canvas canvas,
+    Size size,
+    double center,
+    Color color,
+    double top,
+    double bottom,
+  ) {
+    final path = Path()
+      ..moveTo(-size.width * .2, bottom)
+      ..quadraticBezierTo(size.width * center, top, size.width * 1.2, bottom)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  void _plants(Canvas canvas, Size size) {
+    final vinePaint = Paint()
+      ..color = const Color(0xff287e46)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    final leafPaint = Paint()..color = const Color(0xff70d95a);
+    for (final vine in [(.10, .25), (.82, .20), (.92, .34)]) {
+      final x = size.width * vine.$1;
+      final end = size.height * vine.$2;
+      final path = Path()
+        ..moveTo(x, -4)
+        ..cubicTo(x - 10, end * .26, x + 13, end * .6, x - 3, end);
+      canvas.drawPath(path, vinePaint);
+      _leaf(canvas, Offset(x + 3, end * .56), -0.5, leafPaint);
+      _leaf(canvas, Offset(x - 4, end * .78), 0.55, leafPaint);
+    }
+
+    final stemPaint = Paint()
+      ..color = const Color(0xff1d874f)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    for (final plant in [(.16, .77), (.58, .82), (.89, .72)]) {
+      final root = Offset(size.width * plant.$1, size.height + 2);
+      final tip = Offset(size.width * plant.$1 + 4, size.height * plant.$2);
+      final stem = Path()
+        ..moveTo(root.dx, root.dy)
+        ..quadraticBezierTo(root.dx - 10, tip.dy + 15, tip.dx, tip.dy);
+      canvas.drawPath(stem, stemPaint);
+      _leaf(canvas, Offset(root.dx - 5, tip.dy + 16), -1.05, leafPaint);
+      _leaf(canvas, Offset(root.dx + 4, tip.dy + 9), .65, leafPaint);
+      _leaf(canvas, tip, -0.25, leafPaint);
+    }
+  }
+
+  void _leaf(Canvas canvas, Offset center, double angle, Paint paint) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(angle);
+    canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: 11, height: 5),
+        paint);
+    canvas.restore();
+  }
+
+  void _waterLines(Canvas canvas, Size size, double waterTop) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: .3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (var line = 0; line < 5; line++) {
+      final y = waterTop + 7 + line * 12;
+      final path = Path()..moveTo(0, y);
+      for (var x = 0.0; x <= size.width; x += 10) {
+        path.lineTo(x, y + math.sin(x * .09 + line) * 1.5);
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  void _bubbles(Canvas canvas, Size size, double waterTop, double time) {
+    const bubbles = [
+      (0.13, 4.7, 9.0),
+      (0.31, 6.2, 6.0),
+      (0.68, 5.4, 11.0),
+      (0.85, 7.1, 7.0),
+    ];
+    for (final bubble in bubbles) {
+      // The phase is exactly the same at t=0 and t=1, so controller loops
+      // do not create a visible bubble jump.
+      final travel = (time + bubble.$1) % 1;
+      final radius = bubble.$3 / 2;
+      final opacity = math.sin(travel * math.pi).clamp(0.0, 1.0);
+      final center = Offset(
+        size.width * bubble.$1 + math.sin(travel * math.pi * 2) * 5,
+        size.height + radius - travel * (size.height - waterTop + radius * 2),
+      );
+      final fill = Paint()
+        ..shader = RadialGradient(colors: [
+          Colors.white.withValues(alpha: .8 * opacity),
+          const Color(0xff6ee4ff).withValues(alpha: .34 * opacity),
+          const Color(0xff126da8).withValues(alpha: .12 * opacity),
+        ]).createShader(Rect.fromCircle(center: center, radius: radius));
+      canvas.drawCircle(center, radius, fill);
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = LostChrome.pearl.withValues(alpha: .8 * opacity)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .8,
+      );
+    }
+  }
+
+  void _drawFish(
+    Canvas canvas,
+    Size size,
+    double waterTop,
+    _LagoonFish swimmer,
+    double time,
+  ) {
+    final phase = (time - swimmer.delay) / swimmer.travel;
+    if (phase < 0 || phase > 1) return;
+    final x = swimmer.fromLeft
+        ? -42 + (size.width + 84) * phase
+        : size.width + 42 - (size.width + 84) * phase;
+    final y = waterTop +
+        (size.height - waterTop) * swimmer.lane +
+        math.sin(phase * math.pi * 3) * 5;
+    canvas.save();
+    canvas.translate(x, y);
+    // Artwork faces left by default. Flip it only for left-to-right travel.
+    if (swimmer.fromLeft) canvas.scale(-1, 1);
+    canvas.scale(swimmer.scale);
+    _fishBody(canvas, swimmer.shape, swimmer.color, phase);
+    canvas.restore();
+  }
+
+  void _fishBody(
+      Canvas canvas, _CyberFishShape shape, Color color, double phase) {
+    final light = Color.lerp(color, Colors.white, .58)!;
+    final dark = Color.lerp(color, const Color(0xff062766), .55)!;
+    final body = switch (shape) {
+      _CyberFishShape.glider => Path()
+        ..moveTo(-35, 0)
+        ..quadraticBezierTo(-23, -20, 19, -17)
+        ..quadraticBezierTo(34, -9, 38, 0)
+        ..quadraticBezierTo(31, 15, 18, 18)
+        ..quadraticBezierTo(-22, 19, -35, 0)
+        ..close(),
+      _CyberFishShape.prism => Path()
+        ..moveTo(-37, 0)
+        ..lineTo(-23, -16)
+        ..lineTo(20, -18)
+        ..lineTo(38, 0)
+        ..lineTo(20, 18)
+        ..lineTo(-23, 16)
+        ..close(),
+      _CyberFishShape.byte => Path()
+        ..moveTo(-38, 0)
+        ..lineTo(-22, -14)
+        ..lineTo(22, -14)
+        ..lineTo(38, 0)
+        ..lineTo(22, 14)
+        ..lineTo(-22, 14)
+        ..close(),
+    };
+    final bounds = body.getBounds();
+    final paint = Paint()
+      ..shader =
+          LinearGradient(colors: [light, color, dark]).createShader(bounds);
+    canvas.drawPath(body, paint);
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = LostChrome.pearl
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    final tailWag = math.sin(phase * math.pi * 10) * 4;
+    final tail = Path()
+      ..moveTo(31, 0)
+      ..lineTo(50, -13 + tailWag)
+      ..lineTo(44, 0)
+      ..lineTo(50, 13 - tailWag)
+      ..close();
+    canvas.drawPath(tail, Paint()..color = color);
+    canvas.drawPath(
+      tail,
+      Paint()
+        ..color = LostChrome.ice
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    final fin = Path()
+      ..moveTo(-2, -13)
+      ..lineTo(8, -28)
+      ..lineTo(17, -13)
+      ..close();
+    canvas.drawPath(fin, Paint()..color = dark);
+    if (shape == _CyberFishShape.prism) {
+      for (final x in [-12.0, 4.0, 18.0]) {
+        canvas.drawLine(
+          Offset(x, -13),
+          Offset(x + 8, 13),
+          Paint()
+            ..color = LostChrome.pearl.withValues(alpha: .55)
+            ..strokeWidth = 1.3,
+        );
+      }
+    } else if (shape == _CyberFishShape.byte) {
+      canvas.drawLine(
+        const Offset(-10, -7),
+        const Offset(22, -7),
+        Paint()
+          ..color = LostChrome.pearl.withValues(alpha: .62)
+          ..strokeWidth = 1.2,
+      );
+      canvas.drawLine(
+        const Offset(-10, 1),
+        const Offset(24, 1),
+        Paint()
+          ..color = LostChrome.pearl.withValues(alpha: .45)
+          ..strokeWidth = 1.2,
+      );
+    }
+    canvas.drawCircle(
+        const Offset(-20, -5), 5, Paint()..color = const Color(0xff062766));
+    canvas.drawCircle(
+        const Offset(-20, -5), 2.1, Paint()..color = LostChrome.lime);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AeroLagoonPainter oldDelegate) =>
+      fish != oldDelegate.fish;
+}
+
+class _AudioScopePainter extends CustomPainter {
+  const _AudioScopePainter({
+    required this.inputDb,
+    required this.outputDb,
+    required this.clipped,
+  });
+
+  final double inputDb;
+  final double outputDb;
+  final bool clipped;
+
+  double _level(double db) => ((db.clamp(-60, 0) + 60) / 60).toDouble();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = LostChrome.ice.withValues(alpha: .13)
+      ..strokeWidth = 1;
+    for (var column = 1; column < 6; column++) {
+      final x = size.width * column / 6;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+    }
+    for (var row = 1; row < 3; row++) {
+      final y = size.height * row / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    _wave(
+      canvas,
+      size,
+      _level(inputDb),
+      size.height * .35,
+      LostChrome.electric,
+      2.2,
+    );
+    _wave(
+      canvas,
+      size,
+      _level(outputDb),
+      size.height * .7,
+      clipped ? const Color(0xffff6c8c) : LostChrome.lime,
+      3.4,
+    );
+  }
+
+  void _wave(
+    Canvas canvas,
+    Size size,
+    double level,
+    double center,
+    Color color,
+    double cycles,
+  ) {
+    final path = Path();
+    final amplitude = math.max(2.0, size.height * (.04 + level * .2));
+    for (var x = 0.0; x <= size.width; x += 2) {
+      final progress = x / size.width;
+      final envelope = .55 + .45 * math.sin(progress * math.pi);
+      final y = center +
+          math.sin(progress * math.pi * cycles * 2) * amplitude * envelope;
+      if (x == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    final glow = Paint()
+      ..color = color.withValues(alpha: .32)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawPath(path, glow);
+    final line = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    canvas.drawPath(path, line);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AudioScopePainter oldDelegate) =>
+      inputDb != oldDelegate.inputDb ||
+      outputDb != oldDelegate.outputDb ||
+      clipped != oldDelegate.clipped;
 }
 
 class _MeterStrip extends StatelessWidget {
@@ -2331,8 +3750,8 @@ class _LevelMeter extends StatelessWidget {
     final color = clipped
         ? Theme.of(context).colorScheme.error
         : level > 0.85
-            ? Colors.amberAccent
-            : Colors.greenAccent;
+            ? LostChrome.lime
+            : LostChrome.electric;
     return Row(
       children: [
         Text(label, style: Theme.of(context).textTheme.labelSmall),
@@ -2416,21 +3835,26 @@ class EngineSnapshot {
     required this.compressorThresholdDb,
     required this.compressorRatio,
     required this.eqEnabled,
+    required this.eqVisible,
     required this.eqLowDb,
     required this.eqMidDb,
     required this.eqHighDb,
     required this.chorusEnabled,
+    required this.chorusVisible,
     required this.chorusRateHz,
     required this.chorusDepth,
     required this.chorusMix,
     required this.delayEnabled,
+    required this.delayVisible,
     required this.delayTimeMs,
     required this.delayFeedback,
     required this.delayMix,
     required this.reverbEnabled,
+    required this.reverbVisible,
     required this.reverbDecaySeconds,
     required this.reverbMix,
     required this.looperMode,
+    required this.looperVisible,
     required this.tunerEnabled,
     required this.sampleRate,
     required this.bufferFrames,
@@ -2459,21 +3883,26 @@ class EngineSnapshot {
         compressorThresholdDb = -18,
         compressorRatio = 3,
         eqEnabled = false,
+        eqVisible = false,
         eqLowDb = 0,
         eqMidDb = 0,
         eqHighDb = 0,
         chorusEnabled = false,
+        chorusVisible = false,
         chorusRateHz = .8,
         chorusDepth = .5,
         chorusMix = .35,
         delayEnabled = false,
+        delayVisible = false,
         delayTimeMs = 360,
         delayFeedback = .35,
         delayMix = .25,
         reverbEnabled = false,
+        reverbVisible = false,
         reverbDecaySeconds = 2.5,
         reverbMix = .25,
         looperMode = 'stopped',
+        looperVisible = false,
         tunerEnabled = false,
         sampleRate = 48000,
         bufferFrames = 64;
@@ -2503,22 +3932,27 @@ class EngineSnapshot {
           (json['compressor_threshold_db'] as num?)?.toDouble() ?? -18,
       compressorRatio: (json['compressor_ratio'] as num?)?.toDouble() ?? 3,
       eqEnabled: json['eq_enabled'] as bool? ?? false,
+      eqVisible: json['eq_visible'] as bool? ?? false,
       eqLowDb: (json['eq_low_db'] as num?)?.toDouble() ?? 0,
       eqMidDb: (json['eq_mid_db'] as num?)?.toDouble() ?? 0,
       eqHighDb: (json['eq_high_db'] as num?)?.toDouble() ?? 0,
       chorusEnabled: json['chorus_enabled'] as bool? ?? false,
+      chorusVisible: json['chorus_visible'] as bool? ?? false,
       chorusRateHz: (json['chorus_rate_hz'] as num?)?.toDouble() ?? .8,
       chorusDepth: (json['chorus_depth'] as num?)?.toDouble() ?? .5,
       chorusMix: (json['chorus_mix'] as num?)?.toDouble() ?? .35,
       delayEnabled: json['delay_enabled'] as bool? ?? false,
+      delayVisible: json['delay_visible'] as bool? ?? false,
       delayTimeMs: (json['delay_time_ms'] as num?)?.toDouble() ?? 360,
       delayFeedback: (json['delay_feedback'] as num?)?.toDouble() ?? .35,
       delayMix: (json['delay_mix'] as num?)?.toDouble() ?? .25,
       reverbEnabled: json['reverb_enabled'] as bool? ?? false,
+      reverbVisible: json['reverb_visible'] as bool? ?? false,
       reverbDecaySeconds:
           (json['reverb_decay_seconds'] as num?)?.toDouble() ?? 2.5,
       reverbMix: (json['reverb_mix'] as num?)?.toDouble() ?? .25,
       looperMode: json['looper_mode'] as String? ?? 'stopped',
+      looperVisible: json['looper_visible'] as bool? ?? false,
       tunerEnabled: json['tuner_enabled'] as bool? ?? false,
       sampleRate: json['sample_rate'] as int? ?? 48000,
       bufferFrames: json['buffer_frames'] as int? ?? 64,
@@ -2547,21 +3981,26 @@ class EngineSnapshot {
   final double compressorThresholdDb;
   final double compressorRatio;
   final bool eqEnabled;
+  final bool eqVisible;
   final double eqLowDb;
   final double eqMidDb;
   final double eqHighDb;
   final bool chorusEnabled;
+  final bool chorusVisible;
   final double chorusRateHz;
   final double chorusDepth;
   final double chorusMix;
   final bool delayEnabled;
+  final bool delayVisible;
   final double delayTimeMs;
   final double delayFeedback;
   final double delayMix;
   final bool reverbEnabled;
+  final bool reverbVisible;
   final double reverbDecaySeconds;
   final double reverbMix;
   final String looperMode;
+  final bool looperVisible;
   final bool tunerEnabled;
   final int sampleRate;
   final int bufferFrames;
@@ -2575,6 +4014,14 @@ class EngineSnapshot {
         EffectKind.chorus => chorusEnabled,
         EffectKind.delay => delayEnabled,
         EffectKind.reverb => reverbEnabled,
+      };
+
+  bool pedalVisible(OptionalPedal pedal) => switch (pedal) {
+        OptionalPedal.eq => eqVisible,
+        OptionalPedal.chorus => chorusVisible,
+        OptionalPedal.delay => delayVisible,
+        OptionalPedal.reverb => reverbVisible,
+        OptionalPedal.looper => looperVisible,
       };
 
   Map<String, double> effectControls(EffectKind effect) => switch (effect) {
@@ -2780,6 +4227,12 @@ class ControlClient {
         timeoutMessage: 'Effect bypass change timed out',
       );
 
+  Future<void> setPedalVisible(OptionalPedal pedal, bool visible) => _request(
+        'set_pedal_visible',
+        {'pedal': pedal.name, 'visible': visible},
+        timeoutMessage: 'Adding pedal timed out',
+      );
+
   Future<void> looperAction(String action) => _request(
         'looper_action',
         {'action': action},
@@ -2852,6 +4305,12 @@ class ControlClient {
         'save_preset',
         {'name': name},
         timeoutMessage: 'Saving the preset timed out',
+      );
+
+  Future<void> newPreset() => _request(
+        'new_preset',
+        const {},
+        timeoutMessage: 'New preset request timed out',
       );
 
   Future<void> loadPreset(String id) => _request(

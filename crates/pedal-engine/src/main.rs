@@ -476,6 +476,20 @@ fn handle_control_line(
         return state_response(request.id, state);
     }
 
+    if request.message_type == "new_preset" {
+        model_mailboxes.pre.stage(AmpProcessor::Clean);
+        model_mailboxes.amp.stage(AmpProcessor::Clean);
+        let sample_rate = state.sample_rate;
+        let buffer_frames = state.buffer_frames;
+        *state = EngineState {
+            preset: "New preset".to_owned(),
+            sample_rate,
+            buffer_frames,
+            ..EngineState::default()
+        };
+        return state_response(request.id, state);
+    }
+
     if request.message_type == "rename_preset" {
         let Some(id) = request
             .payload
@@ -598,6 +612,43 @@ fn handle_control_line(
             "delay" => state.delay_enabled = enabled,
             "reverb" => state.reverb_enabled = enabled,
             _ => return control_error(request.id, "invalid_effect", "unknown effect"),
+        }
+        mark_preset_dirty(state);
+        return state_response(request.id, state);
+    }
+
+    if request.message_type == "set_pedal_visible" {
+        let Some(pedal) = request
+            .payload
+            .get("pedal")
+            .and_then(serde_json::Value::as_str)
+        else {
+            return control_error(request.id, "invalid_payload", "pedal is required");
+        };
+        let Some(visible) = request
+            .payload
+            .get("visible")
+            .and_then(serde_json::Value::as_bool)
+        else {
+            return control_error(
+                request.id,
+                "invalid_payload",
+                "set_pedal_visible requires a boolean 'visible' field",
+            );
+        };
+        match pedal {
+            "eq" => state.eq_visible = visible,
+            "chorus" => state.chorus_visible = visible,
+            "delay" => state.delay_visible = visible,
+            "reverb" => state.reverb_visible = visible,
+            "looper" => state.looper_visible = visible,
+            _ => {
+                return control_error(
+                    request.id,
+                    "invalid_pedal",
+                    "only optional effects and the looper can be added",
+                );
+            }
         }
         mark_preset_dirty(state);
         return state_response(request.id, state);
@@ -1049,6 +1100,39 @@ mod tests {
         let response = handle(&mut state, record, &mailboxes);
         assert_eq!(response.payload["looper_mode"], "recording");
         assert_eq!(state.looper_mode, "recording");
+    }
+
+    #[test]
+    fn optional_pedals_can_be_added_and_a_new_preset_resets_the_board() {
+        let mailboxes = mailboxes();
+        let mut state = EngineState {
+            pre_model: Some("/var/lib/pedal/models/drive.nam".to_owned()),
+            model: Some("/var/lib/pedal/models/amp.nam".to_owned()),
+            eq_visible: true,
+            delay_visible: true,
+            looper_visible: true,
+            sample_rate: 44_100,
+            buffer_frames: 128,
+            ..EngineState::default()
+        };
+
+        let add = r#"{"api":1,"id":"chorus","type":"set_pedal_visible","payload":{"pedal":"chorus","visible":true}}"#;
+        let response = handle(&mut state, add, &mailboxes);
+        assert_eq!(response.message_type, "state");
+        assert!(state.chorus_visible);
+
+        let new_preset = r#"{"api":1,"id":"new","type":"new_preset","payload":{}}"#;
+        let response = handle(&mut state, new_preset, &mailboxes);
+        assert_eq!(response.message_type, "state");
+        assert_eq!(state.preset, "New preset");
+        assert!(state.pre_model.is_none());
+        assert!(state.model.is_none());
+        assert!(!state.eq_visible);
+        assert!(!state.chorus_visible);
+        assert!(!state.delay_visible);
+        assert!(!state.looper_visible);
+        assert_eq!(state.sample_rate, 44_100);
+        assert_eq!(state.buffer_frames, 128);
     }
 
     #[test]
