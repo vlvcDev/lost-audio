@@ -197,6 +197,32 @@ class Tone3000Client:
             },
         )
 
+    def search_tones(
+        self,
+        query: str,
+        *,
+        gears: tuple[str, ...],
+        page_size: int = 5,
+    ) -> dict:
+        """Search a small, A2 NAM-only candidate set for a user request.
+
+        TONE3000 rate-limits this endpoint. Callers should use it only for an
+        explicit tone-making request, never as a background catalog refresh.
+        """
+        if not query.strip():
+            raise Tone3000Error("TONE3000 search query cannot be empty")
+        return self._get_json(
+            "/api/v1/tones/search",
+            {
+                "query": query.strip()[:160],
+                "page": 1,
+                "page_size": max(1, min(page_size, 10)),
+                "gears": "_".join(gears),
+                "format": SUPPORTED_FORMAT,
+                "architecture": SUPPORTED_ARCHITECTURE,
+            },
+        )
+
     def download_model(
         self,
         model_url: str,

@@ -6,8 +6,12 @@ from pathlib import Path
 
 from .index import scan_models
 from .server import serve
+from .backing_tracks import BackingTrackService
+from .jev_ranker import JevRigRanker
 from .tone3000 import DEFAULT_BASE_URL
 from .tone3000_service import Tone3000Service
+from .tone_maker import ToneMakerService
+from .tone_memory import ToneMemoryService
 
 
 def parser() -> argparse.ArgumentParser:
@@ -36,6 +40,37 @@ def parser() -> argparse.ArgumentParser:
         "--tone3000-base-url",
         default=os.environ.get("PEDAL_TONE3000_BASE_URL", DEFAULT_BASE_URL),
     )
+    server.add_argument(
+        "--openai-api-key", default=os.environ.get("PEDAL_OPENAI_API_KEY")
+    )
+    server.add_argument(
+        "--openai-model", default=os.environ.get("PEDAL_OPENAI_MODEL", "gpt-5-mini")
+    )
+    server.add_argument(
+        "--typesafe-api-key", default=os.environ.get("PEDAL_TYPESAFE_API_KEY")
+    )
+    server.add_argument(
+        "--typesafe-model",
+        default=os.environ.get("PEDAL_TYPESAFE_MODEL", "jev-latest"),
+    )
+    server.add_argument(
+        "--stability-api-key", default=os.environ.get("PEDAL_STABILITY_API_KEY")
+    )
+    server.add_argument(
+        "--riff-directory",
+        type=Path,
+        default=Path(os.environ.get("PEDAL_RIFF_DIRECTORY", "/var/lib/pedal/riffs")),
+    )
+    server.add_argument(
+        "--backing-tracks-directory",
+        type=Path,
+        default=os.environ.get("PEDAL_BACKING_TRACK_DIRECTORY"),
+    )
+    server.add_argument(
+        "--tone-memory-file",
+        type=Path,
+        default=os.environ.get("PEDAL_TONE_MEMORY_FILE"),
+    )
     return root
 
 
@@ -61,7 +96,37 @@ def main() -> None:
                 token_file,
                 base_url=arguments.tone3000_base_url,
             )
-        serve(arguments.models, arguments.database, arguments.socket, tone3000)
+        tone_memory = ToneMemoryService(
+            arguments.tone_memory_file or arguments.database.parent / "tone-memory.json"
+        )
+        tone_maker = ToneMakerService(
+            arguments.openai_api_key or "",
+            model=arguments.openai_model,
+            tone_memory=tone_memory,
+            jev_ranker=(
+                JevRigRanker(arguments.typesafe_api_key, model=arguments.typesafe_model)
+                if arguments.typesafe_api_key
+                else None
+            ),
+        )
+        backing_tracks = (
+            BackingTrackService(
+                arguments.stability_api_key,
+                arguments.riff_directory,
+                tracks_directory=arguments.backing_tracks_directory,
+            )
+            if arguments.stability_api_key
+            else None
+        )
+        serve(
+            arguments.models,
+            arguments.database,
+            arguments.socket,
+            tone3000,
+            tone_maker,
+            backing_tracks,
+            tone_memory,
+        )
 
 
 if __name__ == "__main__":

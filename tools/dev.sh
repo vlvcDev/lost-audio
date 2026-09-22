@@ -10,9 +10,12 @@ STATE_FILE=${PEDAL_STATE_FILE:-"$RUNTIME_DIR/engine-state.json"}
 PRESET_FILE=${PEDAL_PRESET_FILE:-"$RUNTIME_DIR/presets.json"}
 TOKEN_FILE=${PEDAL_TONE3000_TOKEN_FILE:-"$RUNTIME_DIR/tone3000-tokens.json"}
 PREVIEW_FILE=${PEDAL_PREVIEW_FILE:-"$RUNTIME_DIR/preview.wav"}
+RIFF_DIRECTORY=${PEDAL_RIFF_DIRECTORY:-"$RUNTIME_DIR/riffs"}
+BACKING_TRACK_DIRECTORY=${PEDAL_BACKING_TRACK_DIRECTORY:-"$RIFF_DIRECTORY/backing-tracks"}
 TEST_AUDIO_FILE=${PEDAL_TEST_AUDIO_FILE:-"$REPO_DIR/data/test-audio/guitarjam-184.wav"}
 MODELS_DIR=${PEDAL_MODELS_DIR:-"$REPO_DIR/data/models"}
 CATALOG_DB=${PEDAL_CATALOG_DB:-"$RUNTIME_DIR/catalog.db"}
+SECRETS_FILE=${PEDAL_SECRETS_FILE:-"$REPO_DIR/deploy/pedal-secrets.env"}
 ENGINE_PID_FILE="$RUNTIME_DIR/engine.pid"
 CATALOG_PID_FILE="$RUNTIME_DIR/catalog.pid"
 ENGINE_LOG="$RUNTIME_DIR/engine.log"
@@ -36,6 +39,16 @@ esac
 if [[ -f "$SCRIPT_DIR/dev-env.sh" ]]; then
   # shellcheck disable=SC1091
   source "$SCRIPT_DIR/dev-env.sh"
+fi
+
+# Desktop Linux normally gives PipeWire ownership of USB interfaces such as a
+# Scarlett. Route both ends through its ALSA bridge by default so the pedal can
+# coexist with the desktop, browser, and output selector. A deployer can still
+# request direct ALSA explicitly with PEDAL_AUDIO_*_DEVICE=hw:CARD=... .
+if [[ ${PEDAL_AUDIO_ENABLED:-0} == 1 ]]; then
+  : "${PEDAL_AUDIO_CAPTURE_DEVICE:=pipewire}"
+  : "${PEDAL_AUDIO_PLAYBACK_DEVICE:=pipewire}"
+  export PEDAL_AUDIO_CAPTURE_DEVICE PEDAL_AUDIO_PLAYBACK_DEVICE
 fi
 
 mkdir -p "$RUNTIME_DIR" "$MODELS_DIR"
@@ -102,6 +115,7 @@ start_engine() {
   PEDAL_STATE_FILE="$STATE_FILE" \
   PEDAL_PRESET_FILE="$PRESET_FILE" \
   PEDAL_PREVIEW_FILE="$PREVIEW_FILE" \
+  PEDAL_RIFF_DIRECTORY="$RIFF_DIRECTORY" \
   PEDAL_TEST_AUDIO_FILE="$TEST_AUDIO_FILE" \
     "$ENGINE_BINARY" >"$ENGINE_LOG" 2>&1 &
   pid=$!
@@ -122,12 +136,24 @@ start_catalog() {
   fi
   rm -f "$CATALOG_SOCKET" "$CATALOG_PID_FILE"
   say "Starting the local tone catalog…"
-  PYTHONPATH="$REPO_DIR/services/catalog" \
-  PEDAL_TONE3000_TOKEN_FILE="$TOKEN_FILE" \
-    python3 -m pedal_catalog.cli serve \
-      --models "$MODELS_DIR" \
-      --database "$CATALOG_DB" \
-      --socket "$CATALOG_SOCKET" >"$CATALOG_LOG" 2>&1 &
+  (
+    # Keep cloud credentials in the catalog/Tone Maker process only; Flutter
+    # never receives them through its process environment.
+    if [[ -f "$SECRETS_FILE" ]]; then
+      set -a
+      # shellcheck disable=SC1090
+      source "$SECRETS_FILE"
+      set +a
+    fi
+    PYTHONPATH="$REPO_DIR/services/catalog" \
+    PEDAL_TONE3000_TOKEN_FILE="$TOKEN_FILE" \
+    PEDAL_RIFF_DIRECTORY="$RIFF_DIRECTORY" \
+    PEDAL_BACKING_TRACK_DIRECTORY="$BACKING_TRACK_DIRECTORY" \
+      python3 -m pedal_catalog.cli serve \
+        --models "$MODELS_DIR" \
+        --database "$CATALOG_DB" \
+        --socket "$CATALOG_SOCKET"
+  ) >"$CATALOG_LOG" 2>&1 &
   pid=$!
   printf '%s\n' "$pid" >"$CATALOG_PID_FILE"
   if ! wait_for_socket "Catalog" "$CATALOG_SOCKET" "$CATALOG_PID_FILE" "$CATALOG_LOG"; then

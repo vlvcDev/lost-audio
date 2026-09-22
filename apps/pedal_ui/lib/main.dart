@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -107,8 +108,8 @@ class PedalApp extends StatelessWidget {
   }
 }
 
-class _LostAudioBrand extends StatelessWidget {
-  const _LostAudioBrand();
+class _AeroDspBrand extends StatelessWidget {
+  const _AeroDspBrand();
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +118,7 @@ class _LostAudioBrand extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'LOST//AUDIO',
+          'AERO>>DSP',
           style: TextStyle(
             color: LostChrome.ice,
             fontSize: 17,
@@ -279,6 +280,7 @@ class _RigScreenState extends State<RigScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final compactHeader = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       body: _ChromeBackdrop(
         child: SafeArea(
@@ -287,88 +289,110 @@ class _RigScreenState extends State<RigScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    const _LostAudioBrand(),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Tuner',
-                      onPressed: _engine.connected ? _showTuner : null,
-                      icon: Icon(
-                        Icons.tune,
-                        color: _engine.tunerEnabled ? LostChrome.lime : null,
-                      ),
+                IconButtonTheme(
+                  data: IconButtonThemeData(
+                    style: IconButton.styleFrom(
+                      // The Pi's 480px-wide touch display needs all primary
+                      // controls in one row, including Daily Drill.
+                      minimumSize: Size.square(compactHeader ? 36 : 48),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    IconButton(
-                      tooltip:
-                          _previewPlaying ? 'Stop test audio' : 'Test audio',
-                      onPressed: _engine.connected && !_previewBusy
-                          ? _previewPlaying
-                              ? _stopPreview
-                              : _choosePreview
-                          : null,
-                      icon: _previewBusy
-                          ? const SizedBox.square(
-                              dimension: 17,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(_previewPlaying
-                              ? Icons.stop_circle_outlined
-                              : Icons.music_note),
-                    ),
-                    IconButton(
-                      tooltip: _engine.connected
-                          ? (_engine.bypassed ? 'Engage rig' : 'Bypass rig')
-                          : 'Reconnect engine',
-                      onPressed: _engine.connected
-                          ? () => _client.setBypass(!_engine.bypassed)
-                          : _client.connect,
-                      icon: Icon(
-                        Icons.power_settings_new,
-                        color: !_engine.connected
-                            ? LostChrome.ice
-                            : _engine.bypassed
-                                ? Theme.of(context).colorScheme.error
-                                : LostChrome.lime,
-                      ),
-                    ),
-                    if (MediaQuery.sizeOf(context).width >= 600) ...[
-                      TextButton.icon(
-                        onPressed: _showTone3000,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        icon:
-                            const Icon(Icons.cloud_download_outlined, size: 18),
-                        label: const Text('T3K'),
-                      ),
-                      TextButton.icon(
-                        onPressed: _showAudioOutputs,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        icon: const Icon(Icons.volume_up_outlined, size: 18),
-                        label: const Text('SND'),
-                      ),
-                    ] else ...[
+                  ),
+                  child: Row(
+                    children: [
+                      const _AeroDspBrand(),
+                      const Spacer(),
                       IconButton(
-                        tooltip: 'TONE3000',
-                        onPressed: _showTone3000,
-                        icon: const Icon(Icons.cloud_download_outlined),
+                        tooltip: 'Tuner',
+                        onPressed: _engine.connected ? _showTuner : null,
+                        icon: Icon(
+                          Icons.tune,
+                          color: _engine.tunerEnabled ? LostChrome.lime : null,
+                        ),
                       ),
                       IconButton(
-                        tooltip: 'Output',
-                        onPressed: _showAudioOutputs,
-                        icon: const Icon(Icons.volume_up_outlined),
+                        tooltip: 'Daily Drill',
+                        onPressed: _engine.connected ? _showDailyLesson : null,
+                        icon: const Icon(Icons.school_outlined),
+                      ),
+                      IconButton(
+                        tooltip: 'AI Tone Maker',
+                        onPressed: _showToneMaker,
+                        icon: const Icon(Icons.auto_awesome),
+                      ),
+                      IconButton(
+                        tooltip:
+                            _previewPlaying ? 'Stop test audio' : 'Test audio',
+                        onPressed: _engine.connected && !_previewBusy
+                            ? _previewPlaying
+                                ? _stopPreview
+                                : _choosePreview
+                            : null,
+                        icon: _previewBusy
+                            ? const SizedBox.square(
+                                dimension: 17,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Icon(_previewPlaying
+                                ? Icons.stop_circle_outlined
+                                : Icons.music_note),
+                      ),
+                      IconButton(
+                        tooltip: _engine.connected
+                            ? (_engine.bypassed ? 'Engage rig' : 'Bypass rig')
+                            : 'Reconnect engine',
+                        onPressed: _engine.connected
+                            ? () => _client.setBypass(!_engine.bypassed)
+                            : _client.connect,
+                        icon: Icon(
+                          Icons.power_settings_new,
+                          color: !_engine.connected
+                              ? LostChrome.ice
+                              : _engine.bypassed
+                                  ? Theme.of(context).colorScheme.error
+                                  : LostChrome.lime,
+                        ),
+                      ),
+                      if (!compactHeader) ...[
+                        TextButton.icon(
+                          onPressed: _showTone3000,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          icon: const Icon(Icons.cloud_download_outlined,
+                              size: 18),
+                          label: const Text('T3K'),
+                        ),
+                        TextButton.icon(
+                          onPressed: _showAudioOutputs,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          icon: const Icon(Icons.volume_up_outlined, size: 18),
+                          label: const Text('SND'),
+                        ),
+                      ] else ...[
+                        IconButton(
+                          tooltip: 'TONE3000',
+                          onPressed: _showTone3000,
+                          icon: const Icon(Icons.cloud_download_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Output',
+                          onPressed: _showAudioOutputs,
+                          icon: const Icon(Icons.volume_up_outlined),
+                        ),
+                      ],
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message:
+                            _engine.connected ? 'Engine online' : 'Connecting',
+                        child: _StatusDot(connected: _engine.connected),
                       ),
                     ],
-                    const SizedBox(width: 6),
-                    Tooltip(
-                      message:
-                          _engine.connected ? 'Engine online' : 'Connecting',
-                      child: _StatusDot(connected: _engine.connected),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 InkWell(
@@ -463,7 +487,10 @@ class _RigScreenState extends State<RigScreen> {
                               const SizedBox(height: 8),
                               SizedBox(
                                 height: utilityHeight,
-                                child: _UtilityDeck(snapshot: _meters),
+                                child: _UtilityDeck(
+                                  snapshot: _meters,
+                                  onOpenRiffVault: _showRiffVault,
+                                ),
                               ),
                             ],
                           ),
@@ -700,6 +727,119 @@ class _RigScreenState extends State<RigScreen> {
     );
   }
 
+  Future<void> _showToneMaker() async {
+    final application = await showModalBottomSheet<AiToneApplication>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: .92,
+        child: ToneMakerSheet(
+          catalog: _catalog,
+          engineConnected: _engine.connected,
+          onApply: _applyAiTone,
+        ),
+      ),
+    );
+    if (!mounted || application == null) return;
+    await _showToneMemoryFeedback(application);
+  }
+
+  Future<void> _showToneMemoryFeedback(AiToneApplication application) async {
+    final note = TextEditingController();
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('TONE CHECK'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Does this sound like “${application.memoryQuery}”?'),
+            const SizedBox(height: 10),
+            TextField(
+              controller: note,
+              maxLength: 280,
+              decoration: const InputDecoration(
+                labelText: 'OPTIONAL NOTE',
+                hintText: 'Great with bridge humbucker…',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('NOT QUITE'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.bookmark_added_outlined),
+            label: const Text('YES, SAVE'),
+          ),
+        ],
+      ),
+    );
+    final message = shouldSave == true
+        ? 'Tone saved to local Tone Memory.'
+        : 'No tone was saved.';
+    if (shouldSave == true) {
+      try {
+        await _catalog.saveToneMemory(application.memoryCandidate, note.text);
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('$error')));
+        }
+        note.dispose();
+        return;
+      }
+    }
+    note.dispose();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _applyAiTone(AiToneApplication application) async {
+    if (!_engine.connected) {
+      throw const EngineException(
+          'Connect the audio engine before applying a tone');
+    }
+    // AI-selected NAM pairs can have very different idle gain. Turn on the
+    // board's input-driven gate before loading them so model self-noise stays
+    // closed until the player actually picks a note.
+    await _client.setEffectBypass(EffectKind.gate, false);
+    if (application.preModel case final pedal?) {
+      await _client.selectModel(pedal, ModelSlot.pre);
+    }
+    await _client.selectModel(application.ampModel, ModelSlot.amp);
+    for (final control in application.controls.entries) {
+      await _client.setControl(control.key, control.value);
+    }
+    for (final effect in application.effects.entries) {
+      if (!effect.value) continue;
+      final pedal = switch (effect.key) {
+        'eq' => OptionalPedal.eq,
+        'chorus' => OptionalPedal.chorus,
+        'delay' => OptionalPedal.delay,
+        'reverb' => OptionalPedal.reverb,
+        _ => null,
+      };
+      final kind = switch (effect.key) {
+        'eq' => EffectKind.eq,
+        'chorus' => EffectKind.chorus,
+        'delay' => EffectKind.delay,
+        'reverb' => EffectKind.reverb,
+        _ => null,
+      };
+      if (pedal != null && kind != null) {
+        await _client.setPedalVisible(pedal, true);
+        await _client.setEffectBypass(kind, false);
+      }
+    }
+  }
+
   void _showAudioOutputs() {
     showModalBottomSheet<void>(
       context: context,
@@ -844,6 +984,50 @@ class _RigScreenState extends State<RigScreen> {
     }
   }
 
+  Future<void> _showDailyLesson() async {
+    try {
+      // Daily Drill uses the same clean-input analyzer as the tuner. Keeping
+      // it before the rig means gain, distortion, and ambience cannot alter a
+      // practice score.
+      await _client.setTunerEnabled(true);
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => FractionallySizedBox(
+          heightFactor: 0.92,
+          child: DailyLessonSheet(
+            meters: _client.meters,
+            lessons: DailyLesson.dailySession(DateTime.now()),
+            onMetronomeChanged: _client.setMetronome,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      try {
+        await _client.setTunerEnabled(false);
+      } catch (_) {
+        // The next engine connection starts with the analyzer disabled.
+      }
+    }
+  }
+
+  void _showRiffVault() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: .84,
+        child: RiffVaultSheet(client: _client, catalog: _catalog),
+      ),
+    );
+  }
+
   void _showEffectControls(EffectKind effect) {
     final optionalPedal = switch (effect) {
       EffectKind.eq => OptionalPedal.eq,
@@ -871,10 +1055,16 @@ class _RigScreenState extends State<RigScreen> {
   void _showLooperControls() {
     showModalBottomSheet<void>(
       context: context,
-      builder: (context) => LooperControlsSheet(
-        mode: _engine.looperMode,
-        onAction: _client.looperAction,
-        onRemove: () => _removePedal(OptionalPedal.looper),
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: .82,
+        child: LooperControlsSheet(
+          mode: _engine.looperMode,
+          bpm: _engine.looperBpm,
+          bars: _engine.looperBars,
+          onAction: _client.looperAction,
+          onRemove: () => _removePedal(OptionalPedal.looper),
+        ),
       ),
     );
   }
@@ -2114,22 +2304,43 @@ class _EffectControlsSheetState extends State<EffectControlsSheet> {
   }
 }
 
-class LooperControlsSheet extends StatelessWidget {
+class LooperControlsSheet extends StatefulWidget {
   const LooperControlsSheet(
       {required this.mode,
+      required this.bpm,
+      required this.bars,
       required this.onAction,
       required this.onRemove,
       super.key});
 
   final String mode;
-  final Future<void> Function(String) onAction;
+  final int bpm;
+  final int bars;
+  final Future<void> Function(String, {int? bpm, int? bars}) onAction;
   final Future<bool> Function() onRemove;
+
+  @override
+  State<LooperControlsSheet> createState() => _LooperControlsSheetState();
+}
+
+class _LooperControlsSheetState extends State<LooperControlsSheet> {
+  late int _bpm;
+  late int _bars;
+
+  @override
+  void initState() {
+    super.initState();
+    _bpm = widget.bpm;
+    _bars = widget.bars;
+  }
 
   @override
   Widget build(BuildContext context) {
     Future<void> choose(String action) async {
       try {
-        await onAction(action);
+        await widget.onAction(action,
+            bpm: action == 'record' ? _bpm : null,
+            bars: action == 'record' ? _bars : null);
         if (context.mounted) {
           Navigator.pop(context);
         }
@@ -2144,57 +2355,1314 @@ class LooperControlsSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                const Icon(Icons.loop, color: LostChrome.lime),
+                const SizedBox(width: 8),
+                const Text('30 SECOND LOOPER',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+                const Spacer(),
+                IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close)),
+              ]),
+              Text(
+                  'Now: ${widget.mode.toUpperCase()}  •  loop audio clears after a restart',
+                  style: const TextStyle(color: Color(0xffa2d5f5))),
+              const SizedBox(height: 12),
+              const Text('QUANTIZED RECORD',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+              const SizedBox(height: 4),
+              const Text(
+                  'Four ticks, then record exactly on beat one. It stops and plays back on the selected bar boundary.',
+                  style: TextStyle(color: Color(0xffa2d5f5))),
+              const SizedBox(height: 7),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text('BPM',
+                      style: TextStyle(fontWeight: FontWeight.w800)),
+                  IconButton(
+                      tooltip: 'Decrease looper BPM',
+                      onPressed:
+                          _bpm > 30 ? () => setState(() => _bpm -= 5) : null,
+                      icon: const Icon(Icons.remove_circle_outline)),
+                  Text('$_bpm',
+                      style: const TextStyle(
+                          fontSize: 19, fontWeight: FontWeight.w900)),
+                  IconButton(
+                      tooltip: 'Increase looper BPM',
+                      onPressed:
+                          _bpm < 300 ? () => setState(() => _bpm += 5) : null,
+                      icon: const Icon(Icons.add_circle_outline)),
+                  for (final bars in [1, 2, 4, 8])
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: ChoiceChip(
+                          label: Text('$bars B'),
+                          selected: _bars == bars,
+                          onSelected: (_) => setState(() => _bars = bars)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  FilledButton.icon(
+                      onPressed: () => choose('record'),
+                      icon: const Icon(Icons.fiber_manual_record),
+                      label: const Text('COUNT IN + RECORD')),
+                  FilledButton.tonalIcon(
+                      onPressed: () => choose('play'),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('PLAY')),
+                  FilledButton.tonalIcon(
+                      onPressed: () => choose('overdub'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('OVERDUB')),
+                  OutlinedButton.icon(
+                      onPressed: () => choose('stop'),
+                      icon: const Icon(Icons.stop),
+                      label: const Text('STOP')),
+                ],
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final removed = await widget.onRemove();
+                  if (removed && context.mounted) Navigator.pop(context);
+                },
+                icon: const Icon(Icons.remove_circle_outline),
+                label: const Text('REMOVE FROM BOARD'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A short, deterministic exercise. The AI layer can later choose one of
+/// these templates and adapt its key/BPM without being responsible for
+/// generating valid fretboard data at audio time.
+class DailyLesson {
+  const DailyLesson({
+    required this.title,
+    required this.subtitle,
+    required this.coaching,
+    required this.bpm,
+    required this.events,
+  });
+
+  final String title;
+  final String subtitle;
+  final String coaching;
+  final int bpm;
+  final List<DailyLessonEvent> events;
+
+  int get stepMilliseconds => (60000 / bpm * .5).round();
+
+  /// The daily session always contains three drills; only its starting order
+  /// changes, so a player still gets scales, arpeggios, and picking work.
+  static List<DailyLesson> dailySession(DateTime date) => List.unmodifiable([
+        today(date),
+        today(date.add(const Duration(days: 1))),
+        today(date.add(const Duration(days: 2))),
+      ]);
+
+  static DailyLesson today(DateTime date) {
+    const lessons = [
+      DailyLesson(
+        title: 'E MINOR PENTATONIC',
+        subtitle: 'POSITION 1 // EIGHTH NOTES',
+        coaching: 'Use even alternate picking. Let every note speak once.',
+        bpm: 80,
+        events: [
+          DailyLessonEvent('E2', '6 / 0'),
+          DailyLessonEvent('G2', '6 / 3'),
+          DailyLessonEvent('A2', '5 / 0'),
+          DailyLessonEvent('B2', '5 / 2'),
+          DailyLessonEvent('D3', '4 / 0'),
+          DailyLessonEvent('E3', '4 / 2'),
+          DailyLessonEvent('D3', '4 / 0'),
+          DailyLessonEvent('B2', '5 / 2'),
+          DailyLessonEvent('A2', '5 / 0'),
+          DailyLessonEvent('G2', '6 / 3'),
+          DailyLessonEvent('E2', '6 / 0'),
+        ],
+      ),
+      DailyLesson(
+        title: 'A MAJOR TRIAD',
+        subtitle: 'ARPEGGIO // ROOT POSITION',
+        coaching:
+            'Pick each voice cleanly. Do not let the previous string ring.',
+        bpm: 72,
+        events: [
+          DailyLessonEvent('A2', '5 / 0'),
+          DailyLessonEvent('C#3', '5 / 4'),
+          DailyLessonEvent('E3', '4 / 2'),
+          DailyLessonEvent('A3', '3 / 2'),
+          DailyLessonEvent('C#4', '2 / 2'),
+          DailyLessonEvent('E4', '1 / 0'),
+          DailyLessonEvent('C#4', '2 / 2'),
+          DailyLessonEvent('A3', '3 / 2'),
+          DailyLessonEvent('E3', '4 / 2'),
+          DailyLessonEvent('C#3', '5 / 4'),
+          DailyLessonEvent('A2', '5 / 0'),
+        ],
+      ),
+      DailyLesson(
+        title: 'CHROMATIC ENGINE',
+        subtitle: 'ONE STRING // ALTERNATE PICKING',
+        coaching: 'Keep your wrist loose and make each pick stroke identical.',
+        bpm: 88,
+        events: [
+          DailyLessonEvent('E2', '6 / 0'),
+          DailyLessonEvent('F2', '6 / 1'),
+          DailyLessonEvent('F#2', '6 / 2'),
+          DailyLessonEvent('G2', '6 / 3'),
+          DailyLessonEvent('G#2', '6 / 4'),
+          DailyLessonEvent('A2', '6 / 5'),
+          DailyLessonEvent('G#2', '6 / 4'),
+          DailyLessonEvent('G2', '6 / 3'),
+          DailyLessonEvent('F#2', '6 / 2'),
+          DailyLessonEvent('F2', '6 / 1'),
+          DailyLessonEvent('E2', '6 / 0'),
+        ],
+      ),
+    ];
+    final day = date.difference(DateTime(date.year)).inDays;
+    return lessons[day % lessons.length];
+  }
+}
+
+class DailyLessonEvent {
+  const DailyLessonEvent(this.note, this.position);
+
+  final String note;
+  final String position;
+
+  /// Positions are stored as guitar-tab `string / fret`, where 1 is the high
+  /// e string and 6 is the low E string. Keeping that familiar notation in
+  /// the lesson data also makes it straightforward to export later.
+  int get stringNumber => int.parse(position.split('/').first.trim());
+
+  int get fret => int.parse(position.split('/').last.trim());
+}
+
+class PracticeSessionRecord {
+  const PracticeSessionRecord({
+    required this.completedAt,
+    required this.accuracyPercent,
+    required this.hitCount,
+    required this.noteCount,
+    required this.averageTimingMilliseconds,
+    required this.exerciseTitles,
+  });
+
+  factory PracticeSessionRecord.fromJson(Map<String, dynamic> json) {
+    return PracticeSessionRecord(
+      completedAt: DateTime.fromMillisecondsSinceEpoch(
+          json['completed_at_ms'] as int? ?? 0),
+      accuracyPercent: json['accuracy_percent'] as int? ?? 0,
+      hitCount: json['hit_count'] as int? ?? 0,
+      noteCount: json['note_count'] as int? ?? 0,
+      averageTimingMilliseconds: json['average_timing_ms'] as int? ?? 0,
+      exerciseTitles: (json['exercise_titles'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
+    );
+  }
+
+  final DateTime completedAt;
+  final int accuracyPercent;
+  final int hitCount;
+  final int noteCount;
+  final int averageTimingMilliseconds;
+  final List<String> exerciseTitles;
+
+  Map<String, dynamic> toJson() => {
+        'completed_at_ms': completedAt.millisecondsSinceEpoch,
+        'accuracy_percent': accuracyPercent,
+        'hit_count': hitCount,
+        'note_count': noteCount,
+        'average_timing_ms': averageTimingMilliseconds,
+        'exercise_titles': exerciseTitles,
+      };
+}
+
+class PracticeHistoryStore {
+  PracticeHistoryStore({String? path}) : path = path ?? _defaultPath();
+
+  final String path;
+
+  static String _defaultPath() {
+    final configured = Platform.environment['PEDAL_PRACTICE_HISTORY_FILE'];
+    if (configured != null && configured.isNotEmpty) return configured;
+    final stateHome = Platform.environment['XDG_STATE_HOME'];
+    final home = Platform.environment['HOME'] ?? '.';
+    final root =
+        stateHome?.isNotEmpty == true ? stateHome! : '$home/.local/state';
+    return '$root/lost-audio/practice-history.json';
+  }
+
+  Future<List<PracticeSessionRecord>> load() async {
+    try {
+      final json = jsonDecode(await File(path).readAsString()) as List<dynamic>;
+      final records = json
+          .whereType<Map<String, dynamic>>()
+          .map(PracticeSessionRecord.fromJson)
+          .toList(growable: false)
+        ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+      return records;
+    } on FileSystemException {
+      return const [];
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  Future<void> add(PracticeSessionRecord record) async {
+    final records = await load();
+    // A compact local history is enough for now; the newest 100 sessions are
+    // plenty for the menu and keep startup/storage work negligible.
+    final updated = [record, ...records].take(100).map((item) => item.toJson());
+    final destination = File(path);
+    await destination.parent.create(recursive: true);
+    final temporary = File('$path.new');
+    await temporary.writeAsString(jsonEncode(updated));
+    await temporary.rename(path);
+  }
+}
+
+enum _LessonEventState { pending, hit, missed }
+
+class DailyLessonSheet extends StatefulWidget {
+  DailyLessonSheet({
+    required this.meters,
+    DailyLesson? lesson,
+    List<DailyLesson>? lessons,
+    PracticeHistoryStore? historyStore,
+    this.onMetronomeChanged,
+    super.key,
+  })  : assert(lesson != null || lessons != null),
+        lessons = lessons ?? [lesson!],
+        historyStore = historyStore ?? PracticeHistoryStore();
+
+  final Stream<MeterSnapshot> meters;
+  final List<DailyLesson> lessons;
+  final PracticeHistoryStore historyStore;
+  final Future<void> Function(bool enabled, int bpm)? onMetronomeChanged;
+
+  @override
+  State<DailyLessonSheet> createState() => _DailyLessonSheetState();
+}
+
+class _DailyLessonSheetState extends State<DailyLessonSheet> {
+  static const _minimumConfidence = .62;
+  static const _pitchToleranceCents = 35.0;
+
+  late List<_LessonEventState> _eventStates;
+  final List<int> _timingOffsets = [];
+  StreamSubscription<MeterSnapshot>? _meterSubscription;
+  Timer? _clock;
+  DateTime? _startedAt;
+  bool _running = false;
+  bool _finished = false;
+  bool _awaitingNextLesson = false;
+  int _lessonIndex = 0;
+  int _round = 1;
+  int _passCountInMilliseconds = 0;
+  int _elapsedMilliseconds = 0;
+  int _sessionHitCount = 0;
+  int _sessionNoteCount = 0;
+  final List<int> _sessionTimingOffsets = [];
+
+  DailyLesson get _lesson => widget.lessons[_lessonIndex];
+
+  @override
+  void initState() {
+    super.initState();
+    _eventStates =
+        List.filled(_lesson.events.length, _LessonEventState.pending);
+    _meterSubscription = widget.meters.listen(_receiveMeter);
+  }
+
+  @override
+  void dispose() {
+    _meterSubscription?.cancel();
+    _clock?.cancel();
+    final metronome = widget.onMetronomeChanged;
+    if (metronome != null) unawaited(metronome(false, _lesson.bpm));
+    super.dispose();
+  }
+
+  int get _practiceMilliseconds =>
+      _lesson.events.length * _lesson.stepMilliseconds;
+
+  // Four quarter-note pulses, rather than a fixed wall-clock delay, keep the
+  // count-in honest as future lessons choose different tempos.
+  int get _countInMilliseconds => (60000 / _lesson.bpm * 4).round();
+
+  int get _lessonElapsedMilliseconds =>
+      (_elapsedMilliseconds - _passCountInMilliseconds)
+          .clamp(0, _practiceMilliseconds);
+
+  int get _activeIndex {
+    if (!_running || _elapsedMilliseconds < _passCountInMilliseconds) {
+      return -1;
+    }
+    final index = _lessonElapsedMilliseconds ~/ _lesson.stepMilliseconds;
+    return index.clamp(0, _lesson.events.length - 1);
+  }
+
+  double get _playheadPosition {
+    if (!_running || _elapsedMilliseconds < _passCountInMilliseconds) {
+      return -1;
+    }
+    return (_lessonElapsedMilliseconds / _lesson.stepMilliseconds)
+        .clamp(0.0, _lesson.events.length - .001);
+  }
+
+  int get _hitCount =>
+      _eventStates.where((state) => state == _LessonEventState.hit).length;
+
+  int _averageTiming(List<int> offsets) {
+    if (offsets.isEmpty) return 0;
+    return (offsets.map((offset) => offset.abs()).reduce((a, b) => a + b) /
+            offsets.length)
+        .round();
+  }
+
+  int get _sessionAccuracyPercent => _sessionNoteCount == 0
+      ? 0
+      : (_sessionHitCount / _sessionNoteCount * 100).round();
+
+  void _restartSession() {
+    _clock?.cancel();
+    setState(() {
+      _finished = false;
+      _awaitingNextLesson = false;
+      _lessonIndex = 0;
+      _round = 1;
+      _sessionHitCount = 0;
+      _sessionNoteCount = 0;
+      _sessionTimingOffsets.clear();
+    });
+    unawaited(_beginPass());
+  }
+
+  void _startCurrentLesson() {
+    unawaited(_beginPass());
+  }
+
+  Future<void> _beginPass({bool countIn = true}) async {
+    _clock?.cancel();
+    if (countIn) {
+      try {
+        await widget.onMetronomeChanged?.call(true, _lesson.bpm);
+      } catch (_) {
+        // Practice scoring remains useful if the optional click cannot start.
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _eventStates =
+          List.filled(_lesson.events.length, _LessonEventState.pending);
+      _timingOffsets.clear();
+      _startedAt = DateTime.now();
+      _elapsedMilliseconds = 0;
+      _passCountInMilliseconds = countIn ? _countInMilliseconds : 0;
+      _running = true;
+      _awaitingNextLesson = false;
+    });
+    _clock =
+        Timer.periodic(const Duration(milliseconds: 33), (_) => _advance());
+  }
+
+  void _advance() {
+    final startedAt = _startedAt;
+    if (!_running || startedAt == null || !mounted) return;
+    final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
+    final rawIndex = elapsed < _passCountInMilliseconds
+        ? -1
+        : (elapsed - _passCountInMilliseconds) ~/ _lesson.stepMilliseconds;
+    var passFinished = false;
+    setState(() {
+      _elapsedMilliseconds = elapsed;
+      // When the playhead passes a pending target, it becomes a miss. A later
+      // pitch cannot be retroactively matched to an earlier note.
+      final lastExpired = rawIndex.clamp(0, _lesson.events.length);
+      for (var index = 0; index < lastExpired; index++) {
+        if (_eventStates[index] == _LessonEventState.pending) {
+          _eventStates[index] = _LessonEventState.missed;
+        }
+      }
+      if (rawIndex >= _lesson.events.length) {
+        for (var index = 0; index < _eventStates.length; index++) {
+          if (_eventStates[index] == _LessonEventState.pending) {
+            _eventStates[index] = _LessonEventState.missed;
+          }
+        }
+        _running = false;
+        _clock?.cancel();
+        passFinished = true;
+      }
+    });
+    if (passFinished) _finishPass();
+  }
+
+  void _finishPass() {
+    _sessionHitCount += _hitCount;
+    _sessionNoteCount += _lesson.events.length;
+    _sessionTimingOffsets.addAll(_timingOffsets);
+    final anotherRound = _round < 2;
+    final anotherLesson = _lessonIndex < widget.lessons.length - 1;
+    if (anotherRound) {
+      // The second pass is intentionally immediate: the click continues and
+      // only the scoring grid resets, so there is no second count-in.
+      setState(() => _round += 1);
+      unawaited(_beginPass(countIn: false));
+      return;
+    }
+    if (anotherLesson) {
+      setState(() => _awaitingNextLesson = true);
+      unawaited(widget.onMetronomeChanged?.call(false, _lesson.bpm));
+      return;
+    }
+    if (!anotherRound && !anotherLesson) {
+      setState(() => _finished = true);
+      unawaited(_saveSession());
+      unawaited(widget.onMetronomeChanged?.call(false, _lesson.bpm));
+      return;
+    }
+  }
+
+  void _nextLesson() {
+    if (!_awaitingNextLesson || _lessonIndex >= widget.lessons.length - 1) {
+      return;
+    }
+    setState(() {
+      _lessonIndex += 1;
+      _round = 1;
+      _passCountInMilliseconds = 0;
+      _elapsedMilliseconds = 0;
+      _eventStates =
+          List.filled(_lesson.events.length, _LessonEventState.pending);
+      _timingOffsets.clear();
+      _awaitingNextLesson = false;
+    });
+  }
+
+  Future<void> _saveSession() async {
+    try {
+      await widget.historyStore.add(PracticeSessionRecord(
+        completedAt: DateTime.now(),
+        accuracyPercent: _sessionAccuracyPercent,
+        hitCount: _sessionHitCount,
+        noteCount: _sessionNoteCount,
+        averageTimingMilliseconds: _averageTiming(_sessionTimingOffsets),
+        exerciseTitles: widget.lessons
+            .map((lesson) => lesson.title)
+            .toList(growable: false),
+      ));
+    } on FileSystemException {
+      // A read-only development filesystem should not turn a completed drill
+      // into a failure. The current session result stays visible.
+    }
+  }
+
+  void _receiveMeter(MeterSnapshot meter) {
+    final startedAt = _startedAt;
+    if (!_running || startedAt == null || !mounted) return;
+    if (meter.tunerHz <= 0 || meter.tunerConfidence < _minimumConfidence) {
+      return;
+    }
+    final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
+    if (elapsed < _passCountInMilliseconds) return;
+    final index =
+        (elapsed - _passCountInMilliseconds) ~/ _lesson.stepMilliseconds;
+    if (index < 0 ||
+        index >= _lesson.events.length ||
+        _eventStates[index] != _LessonEventState.pending) {
+      return;
+    }
+    final target = _lesson.events[index];
+    final cents =
+        1200 * math.log(meter.tunerHz / _noteFrequency(target.note)) / math.ln2;
+    if (cents.abs() > _pitchToleranceCents) return;
+    final targetTime =
+        _passCountInMilliseconds + index * _lesson.stepMilliseconds;
+    setState(() {
+      _eventStates[index] = _LessonEventState.hit;
+      _timingOffsets.add(elapsed - targetTime);
+    });
+  }
+
+  String get _headline {
+    if (_finished) return 'SESSION COMPLETE';
+    if (_awaitingNextLesson) return 'EXERCISE COMPLETE';
+    if (!_running) return 'READY WHEN YOU ARE';
+    final remaining = _passCountInMilliseconds - _elapsedMilliseconds;
+    if (remaining > 0) return 'COUNT IN  ${((remaining - 1) ~/ 1000) + 1}';
+    return 'PLAY ${_lesson.events[_activeIndex].note}';
+  }
+
+  String get _subheadline {
+    if (_finished) {
+      return '$_sessionHitCount / $_sessionNoteCount notes • ${_averageTiming(_sessionTimingOffsets)} ms average timing';
+    }
+    if (_awaitingNextLesson) {
+      return 'Two passes complete. Choose NEXT when you are ready for exercise ${_lessonIndex + 2}.';
+    }
+    if (!_running) {
+      return 'Scores clean pitch + timing. Fret position is your choice.';
+    }
+    if (_elapsedMilliseconds < _passCountInMilliseconds) {
+      return 'Feel the pulse. First target comes after the count-in.';
+    }
+    final event = _lesson.events[_activeIndex];
+    return 'STRING ${event.stringNumber} • FRET ${event.fret}  •  ±${_pitchToleranceCents.round()}¢ pitch window';
+  }
+
+  void _showHistory() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: .78,
+        child: PracticeHistorySheet(store: widget.historyStore),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _running
+        ? (_lessonElapsedMilliseconds / _practiceMilliseconds).clamp(0.0, 1.0)
+        : _finished
+            ? 1.0
+            : 0.0;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 11, 18, 18),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(children: [
-              const Icon(Icons.loop, color: LostChrome.lime),
-              const SizedBox(width: 8),
-              const Text('30 SECOND LOOPER',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
-              const Spacer(),
-              IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close)),
-            ]),
-            Text(
-                'Now: ${mode.toUpperCase()}  •  loop audio clears after a restart',
-                style: const TextStyle(color: Color(0xffa2d5f5))),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
+            Row(
               children: [
-                FilledButton.icon(
-                    onPressed: () => choose('record'),
-                    icon: const Icon(Icons.fiber_manual_record),
-                    label: const Text('RECORD')),
-                FilledButton.tonalIcon(
-                    onPressed: () => choose('play'),
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('PLAY')),
-                FilledButton.tonalIcon(
-                    onPressed: () => choose('overdub'),
-                    icon: const Icon(Icons.add),
-                    label: const Text('OVERDUB')),
-                OutlinedButton.icon(
-                    onPressed: () => choose('stop'),
-                    icon: const Icon(Icons.stop),
-                    label: const Text('STOP')),
+                const Icon(Icons.school_outlined, color: LostChrome.lime),
+                const SizedBox(width: 8),
+                const Text('DAILY DRILL',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Practice history',
+                  onPressed: _showHistory,
+                  icon: const Icon(Icons.history),
+                ),
+                IconButton(
+                  tooltip: 'Close daily drill',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
               ],
             ),
+            Text(_lesson.subtitle,
+                style: const TextStyle(
+                    color: LostChrome.lime,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1)),
+            const SizedBox(height: 3),
+            Text(_lesson.title,
+                style:
+                    const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(_lesson.coaching,
+                style: const TextStyle(color: Color(0xffa2d5f5))),
+            const SizedBox(height: 13),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [Color(0xee1659a5), Color(0xee081a43)]),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: LostChrome.ice, width: 1.2),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x5539bfff), blurRadius: 15)
+                ],
+              ),
+              child: Column(
+                children: [
+                  Text(_headline,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: LostChrome.pearl,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .5)),
+                  const SizedBox(height: 4),
+                  Text(_subheadline,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: LostChrome.ice, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 11),
+                  LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 7,
+                    borderRadius: BorderRadius.circular(6),
+                    color: LostChrome.lime,
+                    backgroundColor: const Color(0xff164276),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                      '${_lesson.bpm} BPM  •  EXERCISE ${_lessonIndex + 1}/${widget.lessons.length}  •  PASS $_round/2',
+                      style: const TextStyle(
+                          color: Color(0xffa2d5f5),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .8)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('TABLATURE',
+                style:
+                    TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+            const SizedBox(height: 6),
+            _TablatureDisplay(
+              events: _lesson.events,
+              states: _eventStates,
+              activeIndex: _activeIndex,
+              playheadPosition: _playheadPosition,
+              active:
+                  _running && _elapsedMilliseconds >= _passCountInMilliseconds,
+            ),
+            const SizedBox(height: 13),
+            if (_finished)
+              _DailyDrillResult(
+                accuracyPercent: _sessionAccuracyPercent,
+                hitCount: _sessionHitCount,
+                totalCount: _sessionNoteCount,
+                averageTimingMilliseconds:
+                    _averageTiming(_sessionTimingOffsets),
+              ),
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final removed = await onRemove();
-                if (removed && context.mounted) Navigator.pop(context);
-              },
-              icon: const Icon(Icons.remove_circle_outline),
-              label: const Text('REMOVE FROM BOARD'),
+            if (_awaitingNextLesson)
+              FilledButton.icon(
+                onPressed: _nextLesson,
+                icon: const Icon(Icons.navigate_next),
+                label: Text(
+                    'NEXT EXERCISE ${_lessonIndex + 2}/${widget.lessons.length}'),
+              )
+            else
+              FilledButton.icon(
+                onPressed: _running
+                    ? null
+                    : _finished
+                        ? _restartSession
+                        : _startCurrentLesson,
+                icon: Icon(_finished ? Icons.replay : Icons.play_arrow),
+                label: Text(_finished
+                    ? 'RUN SESSION AGAIN'
+                    : 'START EXERCISE ${_lessonIndex + 1}/${widget.lessons.length}'),
+              ),
+            const SizedBox(height: 8),
+            const Text(
+              'Uses the clean guitar input before your NAMs and effects. It recognizes pitch and onset timing—not a particular string or fret.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xff8bc5e8), fontSize: 11),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TablatureDisplay extends StatelessWidget {
+  const _TablatureDisplay({
+    required this.events,
+    required this.states,
+    required this.activeIndex,
+    required this.playheadPosition,
+    required this.active,
+  });
+
+  final List<DailyLessonEvent> events;
+  final List<_LessonEventState> states;
+  final int activeIndex;
+  final double playheadPosition;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    // A 42px time column keeps double-digit frets readable. The surface can
+    // scroll horizontally when a later lesson is longer than the small Pi UI.
+    final naturalWidth = 52.0 + events.length * 42.0;
+    return Container(
+      height: 146,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: const Color(0xdd081b42),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: LostChrome.ice.withValues(alpha: .78)),
+        boxShadow: const [BoxShadow(color: Color(0x3339bfff), blurRadius: 11)],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: math.max(constraints.maxWidth, naturalWidth),
+            height: 144,
+            child: CustomPaint(
+              painter: _TablaturePainter(
+                events: events,
+                states: states,
+                activeIndex: activeIndex,
+                playheadPosition: playheadPosition,
+                active: active,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TablaturePainter extends CustomPainter {
+  const _TablaturePainter({
+    required this.events,
+    required this.states,
+    required this.activeIndex,
+    required this.playheadPosition,
+    required this.active,
+  });
+
+  final List<DailyLessonEvent> events;
+  final List<_LessonEventState> states;
+  final int activeIndex;
+  final double playheadPosition;
+  final bool active;
+
+  static const _leftGutter = 38.0;
+  static const _columnWidth = 42.0;
+  static const _top = 28.0;
+  static const _stringGap = 17.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stringPaint = Paint()
+      ..color = LostChrome.ice.withValues(alpha: .56)
+      ..strokeWidth = 1;
+    final strongStringPaint = Paint()
+      ..color = LostChrome.ice.withValues(alpha: .82)
+      ..strokeWidth = 1.3;
+    final labels = ['e', 'B', 'G', 'D', 'A', 'E'];
+    for (var index = 0; index < 6; index++) {
+      final y = _top + index * _stringGap;
+      canvas.drawLine(Offset(_leftGutter, y), Offset(size.width, y),
+          index == 0 || index == 5 ? strongStringPaint : stringPaint);
+      _paintText(
+        canvas,
+        labels[index],
+        Offset(14, y - 8),
+        const TextStyle(
+            color: LostChrome.ice, fontSize: 13, fontWeight: FontWeight.w900),
+      );
+    }
+
+    _paintText(
+      canvas,
+      'high',
+      const Offset(6, 4),
+      const TextStyle(color: Color(0xff8bc5e8), fontSize: 8),
+    );
+    _paintText(
+      canvas,
+      'low',
+      const Offset(8, 119),
+      const TextStyle(color: Color(0xff8bc5e8), fontSize: 8),
+    );
+
+    for (var index = 0; index < events.length; index++) {
+      final event = events[index];
+      final x = _leftGutter + _columnWidth * (index + .5);
+      final y = _top + (event.stringNumber - 1) * _stringGap;
+      final state = states[index];
+      final isCurrent = active && index == activeIndex;
+      final accent = switch (state) {
+        _LessonEventState.hit => LostChrome.lime,
+        _LessonEventState.missed => const Color(0xffff7794),
+        _LessonEventState.pending => LostChrome.pearl,
+      };
+
+      final fretText = '${event.fret}';
+      final textPainter = _textPainter(
+        fretText,
+        TextStyle(
+          color: isCurrent ? LostChrome.midnight : accent,
+          fontSize: event.fret >= 10 ? 13 : 15,
+          fontWeight: FontWeight.w900,
+        ),
+      );
+      final pad = 5.0;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x, y),
+          width: textPainter.width + pad * 2,
+          height: textPainter.height + 2,
+        ),
+        const Radius.circular(5),
+      );
+      canvas.drawRRect(
+        rect,
+        Paint()
+          ..color = isCurrent
+              ? LostChrome.lime
+              : const Color(0xff0d2b59).withValues(alpha: .97),
+      );
+      if (state != _LessonEventState.pending && !isCurrent) {
+        canvas.drawRRect(
+          rect,
+          Paint()
+            ..color = accent
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
+      }
+      textPainter.paint(canvas,
+          Offset(x - textPainter.width / 2, y - textPainter.height / 2));
+    }
+
+    if (active && playheadPosition >= 0) {
+      // The marker follows elapsed musical time, not discrete note indexes,
+      // so it visibly glides between tab columns instead of jumping on beats.
+      final cursorX = _leftGutter + _columnWidth * (playheadPosition + .5);
+      final cursorPaint = Paint()
+        ..color = LostChrome.lime
+        ..strokeWidth = 2.2;
+      canvas.drawLine(Offset(cursorX, _top - 17),
+          Offset(cursorX, _top + 5 * _stringGap + 17), cursorPaint);
+      final cursor = Path()
+        ..moveTo(cursorX - 6, _top - 18)
+        ..lineTo(cursorX + 6, _top - 18)
+        ..lineTo(cursorX, _top - 10)
+        ..close();
+      canvas.drawPath(cursor, Paint()..color = LostChrome.lime);
+    }
+
+    _paintText(
+      canvas,
+      'FOLLOW THE LIME CURSOR  •  GREEN = HIT  •  RED = MISS',
+      Offset(_leftGutter, 126),
+      const TextStyle(
+          color: Color(0xff8bc5e8), fontSize: 9, fontWeight: FontWeight.w800),
+    );
+  }
+
+  static TextPainter _textPainter(String text, TextStyle style) {
+    return TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+  }
+
+  static void _paintText(
+      Canvas canvas, String text, Offset offset, TextStyle style) {
+    _textPainter(text, style).paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TablaturePainter oldDelegate) =>
+      oldDelegate.events != events ||
+      oldDelegate.states != states ||
+      oldDelegate.activeIndex != activeIndex ||
+      oldDelegate.playheadPosition != playheadPosition ||
+      oldDelegate.active != active;
+}
+
+class _DailyDrillResult extends StatelessWidget {
+  const _DailyDrillResult({
+    required this.accuracyPercent,
+    required this.hitCount,
+    required this.totalCount,
+    required this.averageTimingMilliseconds,
+  });
+
+  final int accuracyPercent;
+  final int hitCount;
+  final int totalCount;
+  final int averageTimingMilliseconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = accuracyPercent >= 90
+        ? 'LOCKED IN'
+        : accuracyPercent >= 70
+            ? 'SOLID FOUNDATION'
+            : 'SLOW IT DOWN + REPEAT';
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: const Color(0xdd0d2b59),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: LostChrome.lime.withValues(alpha: .72)),
+      ),
+      child: Row(
+        children: [
+          Text('$accuracyPercent%',
+              style: const TextStyle(
+                  color: LostChrome.lime,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w900)),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+                '$message\n$hitCount/$totalCount pitches • $averageTimingMilliseconds ms timing',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PracticeHistorySheet extends StatefulWidget {
+  const PracticeHistorySheet({required this.store, super.key});
+
+  final PracticeHistoryStore store;
+
+  @override
+  State<PracticeHistorySheet> createState() => _PracticeHistorySheetState();
+}
+
+class _PracticeHistorySheetState extends State<PracticeHistorySheet> {
+  late Future<List<PracticeSessionRecord>> _records;
+
+  @override
+  void initState() {
+    super.initState();
+    _records = widget.store.load();
+  }
+
+  void _refresh() => setState(() => _records = widget.store.load());
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: FutureBuilder<List<PracticeSessionRecord>>(
+            future: _records,
+            builder: (context, snapshot) {
+              final records = snapshot.data ?? const [];
+              final best = records.isEmpty
+                  ? null
+                  : records.reduce(
+                      (a, b) => a.accuracyPercent >= b.accuracyPercent ? a : b);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.history, color: LostChrome.lime),
+                      const SizedBox(width: 8),
+                      const Text('PRACTICE HISTORY',
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w900)),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Refresh history',
+                        onPressed: _refresh,
+                        icon: const Icon(Icons.refresh),
+                      ),
+                      IconButton(
+                        tooltip: 'Close practice history',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Expanded(
+                        child: Center(child: CircularProgressIndicator()))
+                  else if (records.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'No completed Daily Drill sessions yet.\nFinish one to set your first best score.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xffa2d5f5)),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 9),
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                            colors: [Color(0xee1778bd), Color(0xee0b315d)]),
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(color: LostChrome.lime),
+                      ),
+                      child: Text(
+                        'BEST SESSION  •  ${best!.accuracyPercent}%  •  ${best.hitCount}/${best.noteCount} NOTES',
+                        style: const TextStyle(
+                            color: LostChrome.pearl,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .4),
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: records.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final record = records[index];
+                          return ListTile(
+                            leading: Text('${record.accuracyPercent}%',
+                                style: const TextStyle(
+                                    color: LostChrome.lime,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 18)),
+                            title: Text(_practiceDate(record.completedAt),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w900)),
+                            subtitle: Text(
+                                '${record.hitCount}/${record.noteCount} notes • ${record.averageTimingMilliseconds} ms timing'),
+                            trailing: const Icon(Icons.check_circle_outline,
+                                color: LostChrome.ice),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      );
+}
+
+String _practiceDate(DateTime value) {
+  const months = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC'
+  ];
+  final hour = value.hour == 0 ? 12 : (value.hour - 1) % 12 + 1;
+  final period = value.hour < 12 ? 'AM' : 'PM';
+  return '${months[value.month - 1]} ${value.day}, ${value.year} • $hour:${value.minute.toString().padLeft(2, '0')} $period';
+}
+
+class RiffVaultSheet extends StatefulWidget {
+  const RiffVaultSheet(
+      {required this.client, required this.catalog, super.key});
+
+  final ControlClient client;
+  final CatalogClient catalog;
+
+  @override
+  State<RiffVaultSheet> createState() => _RiffVaultSheetState();
+}
+
+class _RiffVaultSheetState extends State<RiffVaultSheet> {
+  late Future<List<RiffCapture>> _riffs;
+  final _name = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _riffs = widget.client.listRiffs();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.client.saveRiff(_name.text);
+      _name.clear();
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _riffs = widget.client.listRiffs();
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = '$error';
+        });
+      }
+    }
+  }
+
+  Future<void> _play(String path) async {
+    try {
+      final player = await Process.start('pw-play', [path]);
+      unawaited(player.stdout.drain());
+      unawaited(player.stderr.drain());
+    } on ProcessException {
+      try {
+        final player = await Process.start('aplay', [path]);
+        unawaited(player.stdout.drain());
+        unawaited(player.stderr.drain());
+      } on ProcessException {
+        if (mounted) setState(() => _error = 'No audio player is available');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                const Icon(Icons.bookmark_added_outlined,
+                    color: LostChrome.lime),
+                const SizedBox(width: 8),
+                const Text('RIFF VAULT',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                const Spacer(),
+                IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close)),
+              ]),
+              const Text(
+                  'Save the most recent 30 seconds as clean DI and your current rig.',
+                  style: TextStyle(color: Color(0xffa2d5f5))),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                    child: TextField(
+                        controller: _name,
+                        maxLength: 64,
+                        decoration: const InputDecoration(
+                            counterText: '',
+                            labelText: 'Riff name (optional)',
+                            hintText: 'Untitled Riff'))),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox.square(
+                            dimension: 15,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.save_alt),
+                    label: const Text('SAVE')),
+              ]),
+              if (_error != null)
+                Text(_error!,
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error)),
+              const SizedBox(height: 6),
+              const Text('SAVED RIFFS',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+              Expanded(
+                  child: FutureBuilder<List<RiffCapture>>(
+                future: _riffs,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final riffs = snapshot.data ?? const [];
+                  if (riffs.isEmpty) {
+                    return const Center(
+                        child: Text(
+                            'Play a riff, then tap SAVE to preserve the last 30 seconds.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Color(0xffa2d5f5))));
+                  }
+                  return ListView.separated(
+                    itemCount: riffs.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final riff = riffs[index];
+                      return ListTile(
+                        leading: const Icon(Icons.music_note,
+                            color: LostChrome.electric),
+                        title: Text(riff.name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                            '${riff.durationSeconds.toStringAsFixed(1)} sec • ${riff.preset}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        trailing: Wrap(children: [
+                          IconButton(
+                              tooltip: 'Play clean DI',
+                              onPressed: () => _play(riff.cleanPath),
+                              icon: const Icon(Icons.hearing)),
+                          IconButton(
+                              tooltip: 'Play processed rig',
+                              onPressed: () => _play(riff.processedPath),
+                              icon: const Icon(Icons.graphic_eq)),
+                          IconButton(
+                              tooltip: 'Make backing track',
+                              onPressed: () => _showBackingTracks(riff),
+                              icon: const Icon(Icons.auto_awesome,
+                                  color: LostChrome.lime)),
+                        ]),
+                      );
+                    },
+                  );
+                },
+              )),
+            ],
+          ),
+        ),
+      );
+
+  void _showBackingTracks(RiffCapture riff) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: .78,
+        child: BackingTrackSheet(
+          catalog: widget.catalog,
+          riff: riff,
+          onPlay: _play,
         ),
       ),
     );
@@ -2212,15 +3680,87 @@ class TunerSheet extends StatefulWidget {
 
 class _TunerSheetState extends State<TunerSheet> {
   _Tuning _tuning = _tunings.first;
+  MeterSnapshot _meter = const MeterSnapshot.silent();
+  StreamSubscription<MeterSnapshot>? _meterSubscription;
+  Timer? _holdTimer;
+  int _stringIndex = 0;
+  bool _holdingPitch = false;
+  bool _completed = false;
+
+  static const _holdDuration = Duration(milliseconds: 1000);
+
+  String get _targetNote => _tuning.notes[_stringIndex];
+
+  @override
+  void initState() {
+    super.initState();
+    _meterSubscription = widget.meters.listen(_receiveMeter);
+  }
+
+  @override
+  void dispose() {
+    _meterSubscription?.cancel();
+    _holdTimer?.cancel();
+    super.dispose();
+  }
+
+  void _receiveMeter(MeterSnapshot meter) {
+    if (!mounted) return;
+    final reading = _TunerReading.forTarget(meter, _targetNote);
+    final isStable =
+        !_completed && reading.hasPitch && reading.cents.abs() <= 5;
+    if (isStable && !_holdingPitch) {
+      _holdTimer = Timer(_holdDuration, _advanceIfStillInTune);
+    } else if (!isStable && _holdingPitch) {
+      _holdTimer?.cancel();
+      _holdTimer = null;
+    }
+    setState(() {
+      _meter = meter;
+      _holdingPitch = isStable;
+    });
+  }
+
+  void _advanceIfStillInTune() {
+    if (!mounted || !_holdingPitch) return;
+    setState(() {
+      _holdTimer = null;
+      _holdingPitch = false;
+      if (_stringIndex < _tuning.notes.length - 1) {
+        _stringIndex += 1;
+      } else {
+        _completed = true;
+      }
+    });
+  }
+
+  void _chooseString(int index) {
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    setState(() {
+      _stringIndex = index;
+      _holdingPitch = false;
+      _completed = false;
+    });
+  }
+
+  void _chooseTuning(_Tuning tuning) {
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    setState(() {
+      _tuning = tuning;
+      _stringIndex = 0;
+      _holdingPitch = false;
+      _completed = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: StreamBuilder<MeterSnapshot>(
-        stream: widget.meters,
-        initialData: const MeterSnapshot.silent(),
-        builder: (context, snapshot) {
-          final reading = _TunerReading.fromMeter(snapshot.data!, _tuning);
+      child: Builder(
+        builder: (context) {
+          final reading = _TunerReading.forTarget(_meter, _targetNote);
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
             child: Column(
@@ -2256,7 +3796,7 @@ class _TunerSheetState extends State<TunerSheet> {
                   ),
                   child: Column(
                     children: [
-                      Text(reading.note ?? '—',
+                      Text(_targetNote,
                           style: const TextStyle(
                             fontSize: 55,
                             height: 1,
@@ -2265,9 +3805,13 @@ class _TunerSheetState extends State<TunerSheet> {
                           )),
                       const SizedBox(height: 6),
                       Text(
-                        reading.note == null
-                            ? 'PLAY ONE STRING'
-                            : '${reading.frequency.toStringAsFixed(1)} Hz  •  ${reading.cents >= 0 ? '+' : ''}${reading.cents.round()} cents',
+                        _completed
+                            ? 'ALL STRINGS TUNED'
+                            : !reading.hasPitch
+                                ? 'PLUCK $_targetNote ONLY'
+                                : _holdingPitch
+                                    ? 'IN TUNE — HOLD IT…'
+                                    : '${reading.frequency.toStringAsFixed(1)} Hz  •  ${reading.cents >= 0 ? '+' : ''}${reading.cents.round()} cents',
                         style: const TextStyle(
                           color: LostChrome.lime,
                           fontWeight: FontWeight.w800,
@@ -2276,8 +3820,11 @@ class _TunerSheetState extends State<TunerSheet> {
                       ),
                       const SizedBox(height: 10),
                       _TunerNeedle(
-                          cents: reading.cents,
-                          hasSignal: reading.note != null),
+                          cents: reading.cents, hasSignal: reading.hasPitch),
+                      if (_holdingPitch) ...[
+                        const SizedBox(height: 9),
+                        const _TunerHoldIndicator(),
+                      ],
                       const SizedBox(height: 3),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2297,6 +3844,32 @@ class _TunerSheetState extends State<TunerSheet> {
                   ),
                 ),
                 const SizedBox(height: 14),
+                const Text('GUIDED STRING',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    for (var index = 0; index < _tuning.notes.length; index++)
+                      ChoiceChip(
+                        label: Text('${index + 1} ${_tuning.notes[index]}'),
+                        selected: index == _stringIndex,
+                        onSelected: (_) => _chooseString(index),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _completed
+                      ? 'Finished. Tap any string above to check it again.'
+                      : 'Tune $_targetNote first. Other strings are ignored until it locks.',
+                  textAlign: TextAlign.center,
+                  style:
+                      const TextStyle(color: Color(0xffa2d5f5), fontSize: 11),
+                ),
+                const SizedBox(height: 14),
                 const Text('TUNING',
                     style: TextStyle(
                         fontWeight: FontWeight.w900, letterSpacing: 1.2)),
@@ -2309,7 +3882,7 @@ class _TunerSheetState extends State<TunerSheet> {
                       ChoiceChip(
                         label: Text(tuning.name),
                         selected: tuning == _tuning,
-                        onSelected: (_) => setState(() => _tuning = tuning),
+                        onSelected: (_) => _chooseTuning(tuning),
                       ),
                   ],
                 ),
@@ -2330,6 +3903,252 @@ class _TunerSheetState extends State<TunerSheet> {
       ),
     );
   }
+}
+
+class BackingTrackSheet extends StatefulWidget {
+  const BackingTrackSheet({
+    required this.catalog,
+    required this.riff,
+    required this.onPlay,
+    super.key,
+  });
+
+  final CatalogClient catalog;
+  final RiffCapture riff;
+  final Future<void> Function(String path) onPlay;
+
+  @override
+  State<BackingTrackSheet> createState() => _BackingTrackSheetState();
+}
+
+class _BackingTrackSheetState extends State<BackingTrackSheet> {
+  final _style = TextEditingController(
+      text: 'Tight drums and bass, energetic alternative rock, no lead guitar');
+  late Future<BackingTrackStatus> _status;
+  late Future<List<BackingTrack>> _tracks;
+  Timer? _poller;
+  bool _submitting = false;
+  String? _error;
+  int _duration = 20;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.catalog.backingTrackStatus();
+    _tracks = widget.catalog.listBackingTracks(widget.riff.id);
+    _poller = Timer.periodic(const Duration(seconds: 2), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _style.dispose();
+    _poller?.cancel();
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() => _tracks = widget.catalog.listBackingTracks(widget.riff.id));
+  }
+
+  Future<void> _generate() async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await widget.catalog.createBackingTrack(
+        riffId: widget.riff.id,
+        style: _style.text,
+        durationSeconds: _duration,
+      );
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _tracks = widget.catalog.listBackingTracks(widget.riff.id);
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _error = '$error';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              const Icon(Icons.auto_awesome, color: LostChrome.lime),
+              const SizedBox(width: 8),
+              const Expanded(
+                  child: Text('BACKING LAB',
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w900))),
+              IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close)),
+            ]),
+            Text(
+                'Build a supporting track around “${widget.riff.name}”. Saved results play offline.',
+                style: const TextStyle(color: Color(0xffa2d5f5))),
+            const SizedBox(height: 12),
+            FutureBuilder<BackingTrackStatus>(
+              future: _status,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const LinearProgressIndicator();
+                }
+                if (snapshot.hasError) {
+                  return _BackingTrackNotice(text: '${snapshot.error}');
+                }
+                final available = snapshot.data?.available ?? false;
+                if (!available) {
+                  return const _BackingTrackNotice(
+                      text:
+                          'Add PEDAL_STABILITY_API_KEY to deploy/pedal-secrets.env, then restart the catalog service.');
+                }
+                return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: _style,
+                        minLines: 2,
+                        maxLines: 3,
+                        maxLength: 500,
+                        decoration: const InputDecoration(
+                          labelText: 'Backing style',
+                          hintText: 'Drums, bass, mood, energy…',
+                        ),
+                      ),
+                      Row(children: [
+                        const Text('LENGTH',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(width: 10),
+                        ChoiceChip(
+                            label: const Text('20 SEC'),
+                            selected: _duration == 20,
+                            onSelected: (_) => setState(() => _duration = 20)),
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                            label: const Text('40 SEC'),
+                            selected: _duration == 40,
+                            onSelected: (_) => setState(() => _duration = 40)),
+                        const Spacer(),
+                        FilledButton.icon(
+                          onPressed: _submitting ? null : _generate,
+                          icon: _submitting
+                              ? const SizedBox.square(
+                                  dimension: 15,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.auto_awesome),
+                          label: const Text('GENERATE'),
+                        ),
+                      ]),
+                    ]);
+              },
+            ),
+            if (_error != null) _BackingTrackNotice(text: _error!),
+            const SizedBox(height: 10),
+            const Text('CACHED BACKINGS',
+                style:
+                    TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+            Expanded(
+              child: FutureBuilder<List<BackingTrack>>(
+                future: _tracks,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('${snapshot.error}'));
+                  }
+                  final tracks = snapshot.data ?? const [];
+                  if (tracks.isEmpty) {
+                    return const Center(
+                        child: Text('No backing tracks yet.',
+                            style: TextStyle(color: Color(0xffa2d5f5))));
+                  }
+                  return ListView.separated(
+                    itemCount: tracks.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final track = tracks[index];
+                      final isReady =
+                          track.status == 'ready' && track.path != null;
+                      final status = switch (track.status) {
+                        'queued' => 'WAITING TO START',
+                        'rendering' => 'MAKING YOUR TRACK…',
+                        'ready' =>
+                          '${track.durationSeconds} SEC • OFFLINE READY',
+                        _ => track.error ?? 'FAILED',
+                      };
+                      return ListTile(
+                        leading: Icon(
+                            isReady ? Icons.music_note : Icons.hourglass_top,
+                            color: isReady
+                                ? LostChrome.electric
+                                : LostChrome.lime),
+                        title: Text(track.style,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(status,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        trailing: isReady
+                            ? IconButton(
+                                tooltip: 'Play backing track',
+                                onPressed: () => widget.onPlay(track.path!),
+                                icon: const Icon(Icons.play_arrow))
+                            : null,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ]),
+        ),
+      );
+}
+
+class _BackingTrackNotice extends StatelessWidget {
+  const _BackingTrackNotice({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xff12386b),
+          border: Border.all(color: LostChrome.electric),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(text, style: const TextStyle(color: Color(0xffd9f4ff))),
+      );
+}
+
+class _TunerHoldIndicator extends StatelessWidget {
+  const _TunerHoldIndicator();
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: _TunerSheetState._holdDuration,
+        builder: (context, value, _) => LinearProgressIndicator(
+          value: value,
+          minHeight: 4,
+          borderRadius: BorderRadius.circular(4),
+          color: LostChrome.lime,
+          backgroundColor: const Color(0xff20528c),
+        ),
+      );
 }
 
 class _TunerNeedle extends StatelessWidget {
@@ -2395,32 +4214,24 @@ const _tunings = [
 
 class _TunerReading {
   const _TunerReading(
-      {required this.frequency, required this.cents, this.note});
+      {required this.frequency, required this.cents, required this.hasPitch});
 
-  factory _TunerReading.fromMeter(MeterSnapshot meter, _Tuning tuning) {
+  factory _TunerReading.forTarget(MeterSnapshot meter, String targetNote) {
     if (meter.tunerHz <= 0 || meter.tunerConfidence < .55) {
-      return const _TunerReading(frequency: 0, cents: 0);
+      return const _TunerReading(frequency: 0, cents: 0, hasPitch: false);
     }
-    String? closest;
-    var closestCents = double.infinity;
-    for (final note in tuning.notes) {
-      final cents =
-          1200 * math.log(meter.tunerHz / _noteFrequency(note)) / math.ln2;
-      if (cents.abs() < closestCents.abs()) {
-        closest = note;
-        closestCents = cents;
-      }
-    }
+    final cents =
+        1200 * math.log(meter.tunerHz / _noteFrequency(targetNote)) / math.ln2;
     return _TunerReading(
       frequency: meter.tunerHz,
-      cents: closestCents,
-      note: closest,
+      cents: cents,
+      hasPitch: true,
     );
   }
 
   final double frequency;
   final double cents;
-  final String? note;
+  final bool hasPitch;
 }
 
 double _noteFrequency(String note) {
@@ -2506,6 +4317,499 @@ class _ControlSlider extends StatelessWidget {
       ],
     );
   }
+}
+
+class ToneMakerSheet extends StatefulWidget {
+  const ToneMakerSheet({
+    required this.catalog,
+    required this.engineConnected,
+    required this.onApply,
+    super.key,
+  });
+
+  final CatalogClient catalog;
+  final bool engineConnected;
+  final Future<void> Function(AiToneApplication application) onApply;
+
+  @override
+  State<ToneMakerSheet> createState() => _ToneMakerSheetState();
+}
+
+class _ToneMakerSheetState extends State<ToneMakerSheet> {
+  final _prompt = TextEditingController();
+  ToneMakerStatus? _status;
+  AiToneRecommendation? _recommendation;
+  int _selectedRig = 0;
+  String? _error;
+  bool _busy = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  @override
+  void dispose() {
+    _prompt.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStatus() async {
+    try {
+      final status = await widget.catalog.toneMakerStatus();
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _busy = false;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _setError(error));
+    }
+  }
+
+  Future<void> _recommend() async {
+    final prompt = _prompt.text.trim();
+    if (prompt.length < 3) {
+      setState(() => _error = 'Describe the tone you want first.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+      _recommendation = null;
+    });
+    try {
+      final recommendation = await widget.catalog.requestAiTone(prompt);
+      if (mounted) {
+        setState(() {
+          _recommendation = recommendation;
+          _selectedRig = 0;
+          _busy = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _setError(error));
+    }
+  }
+
+  Future<void> _apply() async {
+    final recommendation = _recommendation;
+    if (recommendation == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final application =
+          await widget.catalog.applyAiTone(recommendation.id, _selectedRig);
+      await widget.onApply(application);
+      if (!mounted) return;
+      Navigator.pop(context, application);
+    } catch (error) {
+      if (mounted) setState(() => _setError(error));
+    }
+  }
+
+  void _setError(Object error) {
+    _error = '$error';
+    _busy = false;
+  }
+
+  void _useExample(String value) {
+    _prompt.text = value;
+    _prompt.selection = TextSelection.collapsed(offset: value.length);
+    setState(() => _error = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+    final recommendation = _recommendation;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: LostChrome.lime),
+                const SizedBox(width: 7),
+                Text('TONE MAKER',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Refresh connection status',
+                  onPressed: _busy ? null : _loadStatus,
+                  icon: const Icon(Icons.refresh),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            Text(
+              'Describe a sound. The device first checks your confirmed Tone Memory, then plans TONE3000 candidates if it needs something new.',
+              style: TextStyle(color: LostChrome.ice.withValues(alpha: .78)),
+            ),
+            const SizedBox(height: 10),
+            if (_busy) const LinearProgressIndicator(),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+            if (status == null)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else if (!status.available && !status.toneMemoryAvailable)
+              Expanded(
+                child: _ToneMakerMessage(
+                  icon: Icons.key_off,
+                  title: 'OpenAI is not configured',
+                  detail:
+                      'Add PEDAL_OPENAI_API_KEY to deploy/pedal-secrets.env, then restart the catalog service.',
+                ),
+              )
+            else if (!status.tone3000Connected && !status.toneMemoryAvailable)
+              Expanded(
+                child: _ToneMakerMessage(
+                  icon: Icons.cloud_off,
+                  title: 'Connect TONE3000 first',
+                  detail:
+                      'Close this sheet, tap the cloud button in the header, and sign in once. Your downloaded tones will still work offline afterward.',
+                ),
+              )
+            else
+              Expanded(
+                child: ListView(
+                  children: [
+                    if (status.toneMemoryAvailable) ...[
+                      const _ToneMemoryReadyBanner(),
+                      const SizedBox(height: 10),
+                    ],
+                    TextField(
+                      controller: _prompt,
+                      minLines: 2,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.newline,
+                      decoration: const InputDecoration(
+                        labelText: 'WHAT SHOULD THIS RIG SOUND LIKE?',
+                        hintText:
+                            'Tight high-gain thrash rhythm with a dry, cutting lead…',
+                        prefixIcon: Icon(Icons.graphic_eq),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 5,
+                      children: [
+                        _PromptChip(
+                          label: 'THRASH',
+                          onTap: () => _useExample(
+                              'Tight high-gain thrash rhythm with a dry, cutting lead'),
+                        ),
+                        _PromptChip(
+                          label: 'SHOEGAZE',
+                          onTap: () => _useExample(
+                              'Wide shoegaze wall with soft compression and washed ambience'),
+                        ),
+                        _PromptChip(
+                          label: 'CLEAN',
+                          onTap: () => _useExample(
+                              'Warm glassy clean with light breakup and a little space'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _recommend,
+                      icon: const Icon(Icons.auto_awesome),
+                      label: const Text('PLAN MY TONE'),
+                    ),
+                    if (recommendation != null) ...[
+                      const SizedBox(height: 14),
+                      _AiPlanCard(
+                        recommendation: recommendation,
+                        selectedRig: _selectedRig,
+                        onSelectRig: (index) =>
+                            setState(() => _selectedRig = index),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed:
+                            _busy || !widget.engineConnected ? null : _apply,
+                        icon: const Icon(Icons.download_done),
+                        label: const Text('DOWNLOAD + APPLY SELECTED RIG'),
+                      ),
+                      if (!widget.engineConnected)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text(
+                            'Connect the audio engine before applying this recommendation.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PromptChip extends StatelessWidget {
+  const _PromptChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ActionChip(
+        label: Text(label,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
+        onPressed: onTap,
+        backgroundColor: const Color(0x553876d6),
+        side: BorderSide(color: LostChrome.ice.withValues(alpha: .45)),
+      );
+}
+
+class _ToneMemoryReadyBanner extends StatelessWidget {
+  const _ToneMemoryReadyBanner();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0x3320c9a4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: LostChrome.lime.withValues(alpha: .65)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.bookmark_added_outlined,
+                color: LostChrome.lime, size: 18),
+            SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                'TONE MEMORY READY — matching confirmed rigs can load offline.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _ToneMakerMessage extends StatelessWidget {
+  const _ToneMakerMessage({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: LostChrome.electric, size: 42),
+            const SizedBox(height: 10),
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 5),
+            Text(detail, textAlign: TextAlign.center),
+          ],
+        ),
+      );
+}
+
+class _AiPlanCard extends StatelessWidget {
+  const _AiPlanCard({
+    required this.recommendation,
+    required this.selectedRig,
+    required this.onSelectRig,
+  });
+
+  final AiToneRecommendation recommendation;
+  final int selectedRig;
+  final ValueChanged<int> onSelectRig;
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = recommendation.plan;
+    final enabledEffects = plan.effects.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key.toUpperCase())
+        .join(' • ');
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xdd155bb1), Color(0xdd0a2b63)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: LostChrome.ice.withValues(alpha: .8)),
+        boxShadow: const [BoxShadow(color: Color(0x6639bfff), blurRadius: 14)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('AI RIG PLAN — PICK ONE',
+              style: TextStyle(
+                  color: LostChrome.lime,
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w900)),
+          const SizedBox(height: 5),
+          Text(plan.summary,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+            switch (recommendation.rankingProvider) {
+              'tone_memory' => 'TONE MEMORY • YOUR CONFIRMED CACHED RIG',
+              'jev' => 'JEV RANKING • CATALOG METADATA, NOT AUDIO ANALYSIS',
+              _ =>
+                'OPENAI FALLBACK • ${(recommendation.rankingNote ?? 'Jev unavailable or uncertain.').toUpperCase()}',
+            },
+            style: TextStyle(
+              color: LostChrome.ice.withValues(alpha: .75),
+              fontSize: 8,
+              letterSpacing: .55,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 9),
+          for (final (index, rig) in recommendation.rigs.indexed) ...[
+            _AiRigChoice(
+              index: index,
+              rig: rig,
+              selected: index == selectedRig,
+              onTap: () => onSelectRig(index),
+            ),
+            if (index != recommendation.rigs.length - 1)
+              const SizedBox(height: 7),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            'ENABLING: ${enabledEffects.isEmpty ? 'NO OPTIONAL EFFECTS' : enabledEffects}',
+            style: TextStyle(
+              color: LostChrome.ice.withValues(alpha: .8),
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiRigChoice extends StatelessWidget {
+  const _AiRigChoice({
+    required this.index,
+    required this.rig,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final int index;
+  final AiToneRig rig;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        selected: selected,
+        button: true,
+        label: 'Rig ${index + 1}: ${rig.label}',
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color:
+                  selected ? const Color(0xaa41bfff) : const Color(0x44265a9e),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected
+                    ? LostChrome.lime
+                    : LostChrome.ice.withValues(alpha: .38),
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: selected ? LostChrome.lime : LostChrome.ice,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('RIG ${index + 1} • ${rig.label.toUpperCase()}',
+                          style: const TextStyle(
+                              fontSize: 10,
+                              letterSpacing: .75,
+                              fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${rig.pedal?.name ?? 'NO DRIVE NAM'}  →  ${rig.amp.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: LostChrome.pearl,
+                            fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(rig.rationale,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: LostChrome.ice.withValues(alpha: .78))),
+                      if (rig.rankingConfidence != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'JEV CONFIDENCE: ${rig.confidenceLabel} '
+                          '• ${(rig.rankingConfidence! * 100).round()}%',
+                          style: TextStyle(
+                            color: rig.rankingConfidence! >= .8
+                                ? LostChrome.lime
+                                : LostChrome.ice.withValues(alpha: .8),
+                            fontSize: 9,
+                            letterSpacing: .55,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class ModelLibrarySheet extends StatefulWidget {
@@ -3041,9 +5345,10 @@ class _StatusDot extends StatelessWidget {
 }
 
 class _UtilityDeck extends StatelessWidget {
-  const _UtilityDeck({required this.snapshot});
+  const _UtilityDeck({required this.snapshot, required this.onOpenRiffVault});
 
   final MeterSnapshot snapshot;
+  final VoidCallback onOpenRiffVault;
 
   @override
   Widget build(BuildContext context) {
@@ -3055,6 +5360,13 @@ class _UtilityDeck extends StatelessWidget {
             detail: 'LIVE // PRE NAM',
             icon: Icons.graphic_eq,
             accent: LostChrome.electric,
+            action: IconButton(
+              tooltip: 'Riff Vault',
+              onPressed: onOpenRiffVault,
+              constraints: const BoxConstraints.tightFor(width: 25, height: 25),
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.bookmark_added_outlined, size: 16),
+            ),
             child: CustomPaint(
               painter: _AudioScopePainter(
                 inputDb: snapshot.inputDb,
@@ -3079,6 +5391,7 @@ class _ChromeUtilityPanel extends StatelessWidget {
     required this.icon,
     required this.accent,
     required this.child,
+    this.action,
   });
 
   final String title;
@@ -3086,6 +5399,7 @@ class _ChromeUtilityPanel extends StatelessWidget {
   final IconData icon;
   final Color accent;
   final Widget child;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -3122,6 +5436,8 @@ class _ChromeUtilityPanel extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     )),
                 const Spacer(),
+                if (action != null) action!,
+                if (action != null) const SizedBox(width: 3),
                 Container(
                   width: 6,
                   height: 6,
@@ -3151,6 +5467,8 @@ class _ChromeUtilityPanel extends StatelessWidget {
 
 enum _CyberFishShape { glider, prism, byte }
 
+enum _FishPace { steady, coast, dart, pulse }
+
 class _LagoonFish {
   const _LagoonFish({
     required this.shape,
@@ -3160,6 +5478,11 @@ class _LagoonFish {
     required this.delay,
     required this.travel,
     required this.scale,
+    required this.swimAmplitude,
+    required this.swimCycles,
+    required this.swimPhase,
+    required this.tailBeats,
+    required this.pace,
   });
 
   final _CyberFishShape shape;
@@ -3169,6 +5492,11 @@ class _LagoonFish {
   final double delay;
   final double travel;
   final double scale;
+  final double swimAmplitude;
+  final double swimCycles;
+  final double swimPhase;
+  final double tailBeats;
+  final _FishPace pace;
 }
 
 class _AeroLagoonTank extends StatefulWidget {
@@ -3180,9 +5508,18 @@ class _AeroLagoonTank extends StatefulWidget {
 
 class _AeroLagoonTankState extends State<_AeroLagoonTank>
     with SingleTickerProviderStateMixin {
+  static const _pixelWidth = 6.0;
+  static const _pixelHeight = 3.0;
+  static const _refreshInterval = Duration(milliseconds: 83);
+
   final _random = math.Random();
   late final AnimationController _controller;
   late List<_LagoonFish> _fish;
+  ui.Image? _pixelFrame;
+  Size? _rasterSize;
+  DateTime? _lastRasterizedAt;
+  Timer? _rasterTimer;
+  bool _isRasterizing = false;
 
   @override
   void initState() {
@@ -3191,12 +5528,14 @@ class _AeroLagoonTankState extends State<_AeroLagoonTank>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
-    )..addStatusListener((status) {
+    )
+      ..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           setState(() => _fish = _spawnFish());
           _controller.forward(from: 0);
         }
-      });
+      })
+      ..addListener(_schedulePixelFrame);
     _controller.forward();
   }
 
@@ -3207,6 +5546,7 @@ class _AeroLagoonTankState extends State<_AeroLagoonTank>
       Color(0xffff963d),
     ];
     final count = 1 + _random.nextInt(2);
+    final paceOffset = _random.nextInt(_FishPace.values.length);
     return List.generate(
       count,
       (index) => _LagoonFish(
@@ -3214,83 +5554,161 @@ class _AeroLagoonTankState extends State<_AeroLagoonTank>
             .values[_random.nextInt(_CyberFishShape.values.length)],
         color: colors[_random.nextInt(colors.length)],
         fromLeft: _random.nextBool(),
-        lane: .18 + _random.nextDouble() * .58,
+        lane: .23 + _random.nextDouble() * .48,
         // Every fish finishes offscreen before the next scene is seeded.
         // That keeps the handoff invisible even on a slow display.
         delay: index == 0 ? 0 : .13 + _random.nextDouble() * .12,
         travel: .45 + _random.nextDouble() * .10,
         scale: .72 + _random.nextDouble() * .25,
+        // These variations create a mix of slow arcs, tighter figure-eight
+        // passes, and differently paced body language without ever reversing
+        // a fish's forward travel.
+        swimAmplitude: 5 + _random.nextDouble() * 8,
+        swimCycles: 1.05 + _random.nextDouble() * 1.15,
+        swimPhase: _random.nextDouble() * math.pi * 2,
+        tailBeats: 3.5 + _random.nextDouble() * 3.5,
+        // Cycle through a shuffled set for each pass, rather than giving
+        // every fish the same "slow-fast-slow" easing curve.
+        pace: _FishPace.values[(paceOffset + index) % _FishPace.values.length],
       ),
     );
   }
 
   @override
   void dispose() {
+    _rasterTimer?.cancel();
+    _pixelFrame?.dispose();
     _controller.dispose();
     super.dispose();
   }
 
+  void _setRasterSize(Size size) {
+    if (!size.width.isFinite || !size.height.isFinite || size.isEmpty) return;
+    if (_rasterSize == size) return;
+    _rasterSize = size;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _schedulePixelFrame());
+  }
+
+  void _schedulePixelFrame() {
+    if (!mounted || _isRasterizing || _rasterSize == null) return;
+    final now = DateTime.now();
+    final last = _lastRasterizedAt;
+    final remaining =
+        last == null ? Duration.zero : _refreshInterval - now.difference(last);
+    if (remaining > Duration.zero) {
+      _rasterTimer ??= Timer(remaining, () {
+        _rasterTimer = null;
+        _rasterizeLagoon();
+      });
+      return;
+    }
+    _rasterizeLagoon();
+  }
+
+  Future<void> _rasterizeLagoon() async {
+    final size = _rasterSize;
+    if (!mounted || _isRasterizing || size == null) return;
+    _isRasterizing = true;
+    _lastRasterizedAt = DateTime.now();
+    final sampleWidth = math.max(1, (size.width / _pixelWidth).ceil());
+    final sampleHeight = math.max(1, (size.height / _pixelHeight).ceil());
+    final recorder = ui.PictureRecorder();
+    final sampleCanvas = Canvas(recorder);
+    // Paint the full illustration onto a tiny bitmap, then let the frame
+    // painter enlarge it with nearest-neighbour sampling. This is actual
+    // raster pixelation rather than a decorative grid over vector artwork.
+    sampleCanvas.scale(1 / _pixelWidth, 1 / _pixelHeight);
+    _AeroLagoonPainter(
+      progress: AlwaysStoppedAnimation(_controller.value),
+      fish: _fish,
+    ).paint(sampleCanvas, size);
+    final picture = recorder.endRecording();
+    try {
+      final nextFrame = await picture.toImage(sampleWidth, sampleHeight);
+      if (!mounted) {
+        nextFrame.dispose();
+        return;
+      }
+      final previousFrame = _pixelFrame;
+      setState(() => _pixelFrame = nextFrame);
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => previousFrame?.dispose());
+    } finally {
+      picture.dispose();
+      _isRasterizing = false;
+      _schedulePixelFrame();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: LostChrome.ice.withValues(alpha: .9)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _setRasterSize(constraints.biggest);
+        return ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
-            BoxShadow(color: Color(0x8029b9ff), blurRadius: 15),
-          ],
-        ),
-        child: Stack(
-          children: [
-            RepaintBoundary(
-              child: CustomPaint(
-                painter: _AeroLagoonPainter(
-                  progress: _controller,
-                  fish: _fish,
-                ),
-                child: const SizedBox.expand(),
-              ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: LostChrome.ice.withValues(alpha: .9)),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: const [
+                BoxShadow(color: Color(0x8029b9ff), blurRadius: 15),
+              ],
             ),
-            IgnorePointer(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xaa073b7e),
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(color: LostChrome.ice),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.waves, size: 11, color: LostChrome.pearl),
-                          SizedBox(width: 4),
-                          Text('AERO LAGOON',
-                              style: TextStyle(
-                                color: LostChrome.pearl,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .9,
-                              )),
-                        ],
-                      ),
+            child: Stack(
+              children: [
+                RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _pixelFrame == null
+                        ? _AeroLagoonPainter(
+                            progress: _controller,
+                            fish: _fish,
+                          )
+                        : _PixelatedLagoonFramePainter(_pixelFrame!),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+                IgnorePointer(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xaa073b7e),
+                            borderRadius: BorderRadius.circular(7),
+                            border: Border.all(color: LostChrome.ice),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.waves,
+                                  size: 11, color: LostChrome.pearl),
+                              SizedBox(width: 4),
+                              Text('AERO LAGOON',
+                                  style: TextStyle(
+                                    color: LostChrome.pearl,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: .9,
+                                  )),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        const _LagoonStatus(),
+                      ],
                     ),
-                    const Spacer(),
-                    const _LagoonStatus(),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -3321,6 +5739,31 @@ class _LagoonStatus extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// Enlarges a low-resolution screenshot with nearest-neighbour sampling.
+/// Every visible cell is therefore a real 6 × 3 display pixel, not a grid
+/// placed on top of normal vector artwork.
+class _PixelatedLagoonFramePainter extends CustomPainter {
+  const _PixelatedLagoonFramePainter(this.frame);
+
+  final ui.Image frame;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawImageRect(
+      frame,
+      Rect.fromLTWH(0, 0, frame.width.toDouble(), frame.height.toDouble()),
+      Offset.zero & size,
+      Paint()
+        ..filterQuality = FilterQuality.none
+        ..isAntiAlias = false,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PixelatedLagoonFramePainter oldDelegate) =>
+      frame != oldDelegate.frame;
 }
 
 class _AeroLagoonPainter extends CustomPainter {
@@ -3439,8 +5882,7 @@ class _AeroLagoonPainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
     canvas.rotate(angle);
     canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: 11, height: 5),
-        paint);
+        Rect.fromCenter(center: Offset.zero, width: 11, height: 5), paint);
     canvas.restore();
   }
 
@@ -3503,23 +5945,62 @@ class _AeroLagoonPainter extends CustomPainter {
   ) {
     final phase = (time - swimmer.delay) / swimmer.travel;
     if (phase < 0 || phase > 1) return;
-    final x = swimmer.fromLeft
-        ? -42 + (size.width + 84) * phase
-        : size.width + 42 - (size.width + 84) * phase;
-    final y = waterTop +
-        (size.height - waterTop) * swimmer.lane +
-        math.sin(phase * math.pi * 3) * 5;
+    final position = _swimPosition(size, waterTop, swimmer, phase);
+    // Sample the curve just ahead and behind the fish so its nose always
+    // leads the route it is actually taking. The horizontal direction stays
+    // monotonic; the curve only supplies a gentle pitch into each turn.
+    final before =
+        _swimPosition(size, waterTop, swimmer, math.max(0, phase - .015));
+    final after =
+        _swimPosition(size, waterTop, swimmer, math.min(1, phase + .015));
+    final path = after - before;
+    final pathPitch = math.atan2(path.dy, path.dx.abs()).clamp(-.42, .42);
     canvas.save();
-    canvas.translate(x, y);
-    // Artwork faces left by default. Flip it only for left-to-right travel.
+    canvas.translate(position.dx, position.dy);
+    // Artwork faces left by default. Rotate first, then flip only for a
+    // left-to-right pass, so the eye/nose always faces forward.
+    canvas.rotate(swimmer.fromLeft ? pathPitch : -pathPitch);
     if (swimmer.fromLeft) canvas.scale(-1, 1);
     canvas.scale(swimmer.scale);
-    _fishBody(canvas, swimmer.shape, swimmer.color, phase);
+    _fishBody(
+      canvas,
+      swimmer.shape,
+      swimmer.color,
+      phase * swimmer.tailBeats + swimmer.swimPhase / (math.pi * 2),
+    );
     canvas.restore();
   }
 
+  Offset _swimPosition(
+    Size size,
+    double waterTop,
+    _LagoonFish swimmer,
+    double phase,
+  ) {
+    final travel = switch (swimmer.pace) {
+      // A calm, constant cruise gives the scene a needed visual baseline.
+      _FishPace.steady => phase,
+      // A quick entry that settles into a leisurely pass.
+      _FishPace.coast => Curves.easeOutCubic.transform(phase),
+      // A slow approach that turns into a late, decisive dart.
+      _FishPace.dart => Curves.easeInCubic.transform(phase),
+      // Small, strictly forward speed pulses: derivative stays positive, so
+      // the fish never looks as though it reverses direction.
+      _FishPace.pulse => phase + math.sin(phase * math.pi * 4) * .035,
+    };
+    final x = swimmer.fromLeft
+        ? -48 + (size.width + 96) * travel
+        : size.width + 48 - (size.width + 96) * travel;
+    final wave = phase * swimmer.swimCycles * math.pi * 2 + swimmer.swimPhase;
+    final y = waterTop +
+        (size.height - waterTop) * swimmer.lane +
+        math.sin(wave) * swimmer.swimAmplitude +
+        math.sin(wave * 2 + .9) * swimmer.swimAmplitude * .28;
+    return Offset(x, y);
+  }
+
   void _fishBody(
-      Canvas canvas, _CyberFishShape shape, Color color, double phase) {
+      Canvas canvas, _CyberFishShape shape, Color color, double swimTime) {
     final light = Color.lerp(color, Colors.white, .58)!;
     final dark = Color.lerp(color, const Color(0xff062766), .55)!;
     final body = switch (shape) {
@@ -3560,7 +6041,7 @@ class _AeroLagoonPainter extends CustomPainter {
         ..strokeWidth = 1.5,
     );
 
-    final tailWag = math.sin(phase * math.pi * 10) * 4;
+    final tailWag = math.sin(swimTime * math.pi * 2) * 5;
     final tail = Path()
       ..moveTo(31, 0)
       ..lineTo(50, -13 + tailWag)
@@ -3576,9 +6057,10 @@ class _AeroLagoonPainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
+    final finLift = math.sin(swimTime * math.pi * 2 + .8) * 3;
     final fin = Path()
       ..moveTo(-2, -13)
-      ..lineTo(8, -28)
+      ..lineTo(8, -28 + finLift)
       ..lineTo(17, -13)
       ..close();
     canvas.drawPath(fin, Paint()..color = dark);
@@ -3855,6 +6337,8 @@ class EngineSnapshot {
     required this.reverbMix,
     required this.looperMode,
     required this.looperVisible,
+    required this.looperBpm,
+    required this.looperBars,
     required this.tunerEnabled,
     required this.sampleRate,
     required this.bufferFrames,
@@ -3903,6 +6387,8 @@ class EngineSnapshot {
         reverbMix = .25,
         looperMode = 'stopped',
         looperVisible = false,
+        looperBpm = 100,
+        looperBars = 4,
         tunerEnabled = false,
         sampleRate = 48000,
         bufferFrames = 64;
@@ -3953,6 +6439,8 @@ class EngineSnapshot {
       reverbMix: (json['reverb_mix'] as num?)?.toDouble() ?? .25,
       looperMode: json['looper_mode'] as String? ?? 'stopped',
       looperVisible: json['looper_visible'] as bool? ?? false,
+      looperBpm: json['looper_bpm'] as int? ?? 100,
+      looperBars: json['looper_bars'] as int? ?? 4,
       tunerEnabled: json['tuner_enabled'] as bool? ?? false,
       sampleRate: json['sample_rate'] as int? ?? 48000,
       bufferFrames: json['buffer_frames'] as int? ?? 64,
@@ -4001,6 +6489,8 @@ class EngineSnapshot {
   final double reverbMix;
   final String looperMode;
   final bool looperVisible;
+  final int looperBpm;
+  final int looperBars;
   final bool tunerEnabled;
   final int sampleRate;
   final int bufferFrames;
@@ -4100,6 +6590,37 @@ class PreviewAudio {
 
   final String path;
   final double durationSeconds;
+}
+
+class RiffCapture {
+  const RiffCapture({
+    required this.id,
+    required this.name,
+    required this.createdAt,
+    required this.durationSeconds,
+    required this.cleanPath,
+    required this.processedPath,
+    required this.preset,
+  });
+
+  factory RiffCapture.fromJson(Map<String, dynamic> json) => RiffCapture(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+            json['created_at_ms'] as int? ?? 0),
+        durationSeconds: (json['duration_seconds'] as num?)?.toDouble() ?? 0,
+        cleanPath: json['clean_path'] as String,
+        processedPath: json['processed_path'] as String,
+        preset: json['preset'] as String? ?? 'Default',
+      );
+
+  final String id;
+  final String name;
+  final DateTime createdAt;
+  final double durationSeconds;
+  final String cleanPath;
+  final String processedPath;
+  final String preset;
 }
 
 class SystemAudioOutput {
@@ -4206,7 +6727,12 @@ class ControlClient {
       _send('get_meters', const {});
       _meterTimer = Timer.periodic(
         const Duration(milliseconds: 100),
-        (_) => _send('get_meters', const {}),
+        (timer) {
+          _send('get_meters', const {});
+          // The audio thread can advance a count-in into recording or playing
+          // between touches, so refresh authoritative state at a modest rate.
+          if (timer.tick % 5 == 0) _send('get_state', const {});
+        },
       );
     } on SocketException {
       _disconnected();
@@ -4233,9 +6759,13 @@ class ControlClient {
         timeoutMessage: 'Adding pedal timed out',
       );
 
-  Future<void> looperAction(String action) => _request(
+  Future<void> looperAction(String action, {int? bpm, int? bars}) => _request(
         'looper_action',
-        {'action': action},
+        {
+          'action': action,
+          if (bpm != null) 'bpm': bpm,
+          if (bars != null) 'bars': bars
+        },
         timeoutMessage: 'Looper command timed out',
       );
 
@@ -4244,6 +6774,35 @@ class ControlClient {
         {'enabled': enabled},
         timeoutMessage: 'Tuner change timed out',
       );
+
+  Future<void> setMetronome(bool enabled, int bpm) => _request(
+        'set_metronome',
+        {'enabled': enabled, 'bpm': bpm},
+        timeoutMessage: 'Metronome change timed out',
+      );
+
+  Future<List<RiffCapture>> listRiffs() async {
+    final response = await _requestRaw(
+      'list_riffs',
+      const {},
+      timeoutMessage: 'Riff Vault list timed out',
+    );
+    final payload = response['payload'] as Map<String, dynamic>;
+    return (payload['riffs'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(RiffCapture.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<RiffCapture> saveRiff(String name) async {
+    final response = await _requestRaw(
+      'save_riff',
+      {'name': name},
+      timeout: const Duration(seconds: 15),
+      timeoutMessage: 'Saving the Riff Vault take timed out',
+    );
+    return RiffCapture.fromJson(response['payload'] as Map<String, dynamic>);
+  }
 
   Future<void> clearModel(ModelSlot slot) => _request(
         'clear_model',
@@ -4259,7 +6818,11 @@ class ControlClient {
 
   Future<void> selectModel(CatalogModel model, ModelSlot slot) => _request(
         'select_model',
-        {'path': model.path, 'preset': model.name, 'slot': slot.name},
+        {
+          'path': model.path,
+          'preset': model.name,
+          'slot': slot.name,
+        },
         timeout: const Duration(seconds: 15),
         timeoutMessage: 'Model preparation timed out',
       );
@@ -4396,6 +6959,8 @@ class ControlClient {
       pending?.complete(message);
     } else if (message['type'] == 'preview') {
       pending?.complete(message);
+    } else if (message['type'] == 'riff' || message['type'] == 'riffs') {
+      pending?.complete(message);
     } else if (message['type'] == 'meters') {
       _meters.add(
           MeterSnapshot.fromJson(message['payload'] as Map<String, dynamic>));
@@ -4495,6 +7060,207 @@ class Tone3000Status {
   final String? selectedToneId;
 }
 
+class ToneMakerStatus {
+  const ToneMakerStatus({
+    required this.available,
+    required this.tone3000Connected,
+    this.toneMemoryAvailable = false,
+  });
+
+  factory ToneMakerStatus.fromJson(Map<String, dynamic> json) =>
+      ToneMakerStatus(
+        available: json['available'] as bool? ?? false,
+        tone3000Connected: json['tone3000_connected'] as bool? ?? false,
+        toneMemoryAvailable: json['tone_memory_available'] as bool? ?? false,
+      );
+
+  final bool available;
+  final bool tone3000Connected;
+  final bool toneMemoryAvailable;
+}
+
+class BackingTrackStatus {
+  const BackingTrackStatus({required this.available});
+
+  factory BackingTrackStatus.fromJson(Map<String, dynamic> json) =>
+      BackingTrackStatus(available: json['available'] as bool? ?? false);
+
+  final bool available;
+}
+
+class BackingTrack {
+  const BackingTrack({
+    required this.id,
+    required this.riffId,
+    required this.riffName,
+    required this.style,
+    required this.createdAt,
+    required this.status,
+    required this.durationSeconds,
+    required this.strength,
+    this.path,
+    this.error,
+  });
+
+  factory BackingTrack.fromJson(Map<String, dynamic> json) => BackingTrack(
+        id: json['id'] as String,
+        riffId: json['riff_id'] as String,
+        riffName: json['riff_name'] as String? ?? 'Untitled Riff',
+        style: json['style'] as String? ?? 'Backing track',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+            json['created_at_ms'] as int? ?? 0),
+        status: json['status'] as String? ?? 'failed',
+        durationSeconds: json['duration_seconds'] as int? ?? 20,
+        strength: (json['strength'] as num?)?.toDouble() ?? .65,
+        path: json['path'] as String?,
+        error: json['error'] as String?,
+      );
+
+  final String id;
+  final String riffId;
+  final String riffName;
+  final String style;
+  final DateTime createdAt;
+  final String status;
+  final int durationSeconds;
+  final double strength;
+  final String? path;
+  final String? error;
+}
+
+class AiTonePlan {
+  const AiTonePlan({
+    required this.summary,
+    required this.pedalQuery,
+    required this.ampQuery,
+    required this.controls,
+    required this.effects,
+  });
+
+  factory AiTonePlan.fromJson(Map<String, dynamic> json) => AiTonePlan(
+        summary: json['summary'] as String,
+        pedalQuery: json['pedal_query'] as String,
+        ampQuery: json['amp_query'] as String,
+        controls: (json['controls'] as Map<String, dynamic>).map(
+          (key, value) => MapEntry(key, (value as num).toDouble()),
+        ),
+        effects: (json['effects'] as Map<String, dynamic>).map(
+          (key, value) => MapEntry(key, value as bool),
+        ),
+      );
+
+  final String summary;
+  final String pedalQuery;
+  final String ampQuery;
+  final Map<String, double> controls;
+  final Map<String, bool> effects;
+}
+
+class AiToneRecommendation {
+  const AiToneRecommendation({
+    required this.id,
+    required this.plan,
+    required this.rigs,
+    required this.rankingProvider,
+    this.rankingNote,
+  });
+
+  factory AiToneRecommendation.fromJson(Map<String, dynamic> json) =>
+      AiToneRecommendation(
+        id: json['recommendation_id'] as String,
+        plan: AiTonePlan.fromJson(json['plan'] as Map<String, dynamic>),
+        rigs: (json['rigs'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(AiToneRig.fromJson)
+            .toList(growable: false),
+        rankingProvider: json['ranking_provider'] as String? ?? 'openai',
+        rankingNote: json['ranking_note'] as String?,
+      );
+
+  final String id;
+  final AiTonePlan plan;
+  final List<AiToneRig> rigs;
+  final String rankingProvider;
+  final String? rankingNote;
+}
+
+class AiToneRig {
+  const AiToneRig({
+    required this.label,
+    required this.rationale,
+    required this.pedal,
+    required this.amp,
+    this.rankingConfidence,
+    this.rankingScore,
+  });
+
+  factory AiToneRig.fromJson(Map<String, dynamic> json) {
+    final pedal = json['pedal'];
+    return AiToneRig(
+      label: json['label'] as String,
+      rationale: json['rationale'] as String,
+      pedal: pedal is Map<String, dynamic> ? RemoteTone.fromJson(pedal) : null,
+      amp: RemoteTone.fromJson(json['amp'] as Map<String, dynamic>),
+      rankingConfidence: (json['ranking_confidence'] as num?)?.toDouble(),
+      rankingScore: (json['ranking_score'] as num?)?.toDouble(),
+    );
+  }
+
+  final String label;
+  final String rationale;
+  final RemoteTone? pedal;
+  final RemoteTone amp;
+  final double? rankingConfidence;
+  final double? rankingScore;
+
+  String get confidenceLabel {
+    final confidence = rankingConfidence ?? 0;
+    if (confidence >= .8) return 'HIGH';
+    if (confidence >= .55) return 'MEDIUM';
+    return 'LOW';
+  }
+}
+
+class AiToneApplication {
+  const AiToneApplication({
+    required this.summary,
+    required this.preModel,
+    required this.ampModel,
+    required this.controls,
+    required this.effects,
+    required this.memoryCandidate,
+  });
+
+  factory AiToneApplication.fromJson(Map<String, dynamic> json) {
+    final preModel = json['pre_model'];
+    return AiToneApplication(
+      summary: json['summary'] as String,
+      preModel: preModel is Map<String, dynamic>
+          ? CatalogModel.fromJson(preModel)
+          : null,
+      ampModel:
+          CatalogModel.fromJson(json['amp_model'] as Map<String, dynamic>),
+      controls: (json['controls'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, (value as num).toDouble()),
+      ),
+      effects: (json['effects'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, value as bool),
+      ),
+      memoryCandidate: Map<String, dynamic>.from(
+          json['tone_memory'] as Map<String, dynamic>),
+    );
+  }
+
+  final String summary;
+  final CatalogModel? preModel;
+  final CatalogModel ampModel;
+  final Map<String, double> controls;
+  final Map<String, bool> effects;
+  final Map<String, dynamic> memoryCandidate;
+
+  String get memoryQuery => memoryCandidate['query'] as String? ?? summary;
+}
+
 class RemoteTone {
   const RemoteTone({
     required this.id,
@@ -4584,6 +7350,72 @@ class CatalogClient {
     final payload = await _payload('tone3000_status', const {});
     return Tone3000Status.fromJson(payload);
   }
+
+  Future<ToneMakerStatus> toneMakerStatus() async {
+    final payload = await _payload('tone_maker_status', const {});
+    return ToneMakerStatus.fromJson(payload);
+  }
+
+  Future<BackingTrackStatus> backingTrackStatus() async {
+    final payload = await _payload('backing_track_status', const {});
+    return BackingTrackStatus.fromJson(payload);
+  }
+
+  Future<BackingTrack> createBackingTrack({
+    required String riffId,
+    required String style,
+    required int durationSeconds,
+  }) async {
+    final payload = await _payload(
+      'backing_track_create',
+      {
+        'riff_id': riffId,
+        'style': style,
+        'duration_seconds': durationSeconds,
+        'strength': .65,
+      },
+      timeout: const Duration(seconds: 10),
+    );
+    return BackingTrack.fromJson(payload);
+  }
+
+  Future<List<BackingTrack>> listBackingTracks(String riffId) async {
+    final payload = await _payload('backing_track_list', {'riff_id': riffId});
+    return (payload['tracks'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(BackingTrack.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<AiToneRecommendation> requestAiTone(String prompt) async {
+    final payload = await _payload(
+      'tone_maker_recommend',
+      {'prompt': prompt},
+      timeout: const Duration(seconds: 45),
+    );
+    return AiToneRecommendation.fromJson(payload);
+  }
+
+  Future<AiToneApplication> applyAiTone(
+    String recommendationId,
+    int rigIndex,
+  ) async {
+    final payload = await _payload(
+      'tone_maker_apply',
+      {'recommendation_id': recommendationId, 'rig_index': rigIndex},
+      timeout: const Duration(seconds: 75),
+    );
+    return AiToneApplication.fromJson(payload);
+  }
+
+  Future<void> saveToneMemory(
+    Map<String, dynamic> candidate,
+    String note,
+  ) =>
+      _payload(
+        'tone_memory_save',
+        {'candidate': candidate, 'note': note},
+      );
 
   Future<String> beginTone3000Auth() async {
     final payload = await _payload('tone3000_begin_auth', const {});

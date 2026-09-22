@@ -10,8 +10,11 @@ from typing import Any
 
 from .index import list_models, scan_models, upsert_model
 from .oauth_callback import OAuthCallbackServer
+from .backing_tracks import BackingTrackError, BackingTrackService
 from .tone3000 import Tone3000Error
 from .tone3000_service import Tone3000Service
+from .tone_maker import ToneMakerError, ToneMakerService
+from .tone_memory import ToneMemoryError, ToneMemoryService
 
 
 API_VERSION = 1
@@ -22,6 +25,9 @@ def handle_request(
     models_dir: Path,
     database: Path,
     tone3000: Tone3000Service | None = None,
+    tone_maker: ToneMakerService | None = None,
+    backing_tracks: BackingTrackService | None = None,
+    tone_memory: ToneMemoryService | None = None,
 ) -> dict:
     request_id = str(message.get("id", "unknown"))
     if message.get("api") != API_VERSION:
@@ -50,6 +56,27 @@ def handle_request(
             }
         )
         return _response(request_id, "tone3000_status", status)
+    if message_type == "tone_maker_status":
+        status = (
+            tone_maker.status(tone3000)
+            if tone_maker
+            else {"available": False, "tone3000_connected": False}
+        )
+        return _response(request_id, "tone_maker_status", status)
+    if message_type == "backing_track_status":
+        return _response(
+            request_id,
+            "backing_track_status",
+            backing_tracks.status() if backing_tracks else {"available": False},
+        )
+    if message_type == "tone_memory_list":
+        if tone_memory is None:
+            return _response(request_id, "tone_memory", {"records": []})
+        try:
+            records = tone_memory.list_records()
+        except ToneMemoryError as error:
+            return _error(request_id, "tone_memory_error", str(error))
+        return _response(request_id, "tone_memory", {"records": records})
     if tone3000 is None and isinstance(message_type, str) and message_type.startswith("tone3000_"):
         return _error(
             request_id,
@@ -57,6 +84,102 @@ def handle_request(
             "TONE3000 is not configured on this device",
         )
     try:
+        if message_type == "backing_track_create":
+            riff_id = payload.get("riff_id")
+            style = payload.get("style")
+            duration_seconds = payload.get("duration_seconds", 20)
+            strength = payload.get("strength", 0.65)
+            if not isinstance(riff_id, str) or not isinstance(style, str):
+                return _error(request_id, "invalid_payload", "riff_id and style are required")
+            if not isinstance(duration_seconds, int) or not isinstance(strength, (int, float)):
+                return _error(request_id, "invalid_payload", "duration and strength are invalid")
+            if backing_tracks is None:
+                return _error(
+                    request_id,
+                    "backing_track_unavailable",
+                    "Stable Audio is not configured on this device",
+                )
+            return _response(
+                request_id,
+                "backing_track",
+                backing_tracks.queue(
+                    riff_id,
+                    style,
+                    duration_seconds=duration_seconds,
+                    strength=float(strength),
+                ).as_payload(),
+            )
+        if message_type == "backing_track_job":
+            track_id = payload.get("track_id")
+            if not isinstance(track_id, str):
+                return _error(request_id, "invalid_payload", "track_id is required")
+            if backing_tracks is None:
+                return _error(request_id, "backing_track_unavailable", "Stable Audio is not configured on this device")
+            return _response(
+                request_id,
+                "backing_track",
+                backing_tracks.job(track_id).as_payload(),
+            )
+        if message_type == "backing_track_list":
+            riff_id = payload.get("riff_id")
+            if riff_id is not None and not isinstance(riff_id, str):
+                return _error(request_id, "invalid_payload", "riff_id must be a string")
+            if backing_tracks is None:
+                return _response(request_id, "backing_tracks", {"tracks": []})
+            return _response(
+                request_id,
+                "backing_tracks",
+                {"tracks": [track.as_payload() for track in backing_tracks.list_tracks(riff_id)]},
+            )
+        if message_type == "tone_maker_recommend":
+            prompt = payload.get("prompt")
+            if not isinstance(prompt, str):
+                return _error(request_id, "invalid_payload", "prompt must be a string")
+            if tone_maker is None:
+                return _error(
+                    request_id,
+                    "tone_maker_unavailable",
+                    "OpenAI is not configured on this device",
+                )
+            return _response(
+                request_id,
+                "tone_maker_recommendation",
+                tone_maker.recommend(prompt, tone3000).as_payload(),
+            )
+        if message_type == "tone_maker_apply":
+            recommendation_id = payload.get("recommendation_id")
+            rig_index = payload.get("rig_index")
+            if not isinstance(recommendation_id, str) or not isinstance(rig_index, int):
+                return _error(
+                    request_id,
+                    "invalid_payload",
+                    "recommendation_id and rig_index are required",
+                )
+            if tone_maker is None:
+                return _error(
+                    request_id,
+                    "tone_maker_unavailable",
+                    "OpenAI is not configured on this device",
+                )
+            return _response(
+                request_id,
+                "tone_maker_applied",
+                tone_maker.apply(
+                    recommendation_id, rig_index, tone3000, models_dir, database
+                ),
+            )
+        if message_type == "tone_memory_save":
+            candidate = payload.get("candidate")
+            note = payload.get("note", "")
+            if not isinstance(candidate, dict) or not isinstance(note, str):
+                return _error(request_id, "invalid_payload", "candidate and note are invalid")
+            if tone_memory is None:
+                return _error(request_id, "tone_memory_unavailable", "Tone Memory is unavailable")
+            return _response(
+                request_id,
+                "tone_memory_saved",
+                {"record": tone_memory.save(candidate, note)},
+            )
         if message_type == "tone3000_begin_auth":
             return _response(
                 request_id,
@@ -84,8 +207,12 @@ def handle_request(
             path, _ = tone3000.download(str(tone_id), str(model_id), models_dir)  # type: ignore[union-attr]
             record = upsert_model(path, database, source=f"tone3000:model:{model_id}")
             return _response(request_id, "tone3000_downloaded", {"model": asdict(record)})
-    except Tone3000Error as error:
+    except (Tone3000Error, ToneMakerError) as error:
         return _error(request_id, "tone3000_error", str(error))
+    except BackingTrackError as error:
+        return _error(request_id, "backing_track_error", str(error))
+    except ToneMemoryError as error:
+        return _error(request_id, "tone_memory_error", str(error))
     return _error(request_id, "unknown_message", "Unknown catalog message type")
 
 
@@ -107,11 +234,17 @@ class _CatalogServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer)
         models_dir: Path,
         database: Path,
         tone3000: Tone3000Service | None,
+        tone_maker: ToneMakerService | None,
+        backing_tracks: BackingTrackService | None,
+        tone_memory: ToneMemoryService | None,
         tone3000_lock: threading.Lock,
     ) -> None:
         self.models_dir = models_dir
         self.database = database
         self.tone3000 = tone3000
+        self.tone_maker = tone_maker
+        self.backing_tracks = backing_tracks
+        self.tone_memory = tone_memory
         self.tone3000_lock = tone3000_lock
         super().__init__(str(socket_path), _CatalogHandler)
 
@@ -130,6 +263,9 @@ class _CatalogHandler(socketserver.StreamRequestHandler):
                         server.models_dir,
                         server.database,
                         server.tone3000,
+                        server.tone_maker,
+                        server.backing_tracks,
+                        server.tone_memory,
                     )
             except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
                 response = _error("unknown", "invalid_json", str(error))
@@ -142,6 +278,9 @@ def serve(
     database: Path,
     socket_path: Path,
     tone3000: Tone3000Service | None = None,
+    tone_maker: ToneMakerService | None = None,
+    backing_tracks: BackingTrackService | None = None,
+    tone_memory: ToneMemoryService | None = None,
 ) -> None:
     models_dir.mkdir(parents=True, exist_ok=True)
     database.parent.mkdir(parents=True, exist_ok=True)
@@ -162,7 +301,14 @@ def serve(
                 flush=True,
             )
         with _CatalogServer(
-            socket_path, models_dir, database, tone3000, tone3000_lock
+            socket_path,
+            models_dir,
+            database,
+            tone3000,
+            tone_maker,
+            backing_tracks,
+            tone_memory,
+            tone3000_lock,
         ) as server:
             os.chmod(socket_path, 0o660)
             print(f"pedal-catalog listening on {socket_path}", flush=True)

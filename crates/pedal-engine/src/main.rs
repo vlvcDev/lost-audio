@@ -5,7 +5,9 @@ use pedal_engine::dsp::{
     SwappableProcessor,
 };
 use pedal_engine::effects::{EffectChainProcessor, EffectsParameters, LooperMode};
+use pedal_engine::metronome::{MetronomeParameters, MetronomeProcessor};
 use pedal_engine::presets::PresetStore;
+use pedal_engine::riff_vault::{DEFAULT_SECONDS, RiffVault, RiffVaultProcessor, SavedRiff};
 use pedal_engine::tuner::{TunerParameters, TunerTapProcessor, TunerTelemetry};
 use pedal_engine::{API_VERSION, EngineState, Request, Response, handle_request, parse_and_handle};
 use std::env;
@@ -22,6 +24,7 @@ const DEFAULT_STATE_FILE: &str = "/var/lib/pedal/engine-state.json";
 const DEFAULT_PRESET_FILE: &str = "/var/lib/pedal/presets.json";
 const DEFAULT_PREVIEW_FILE: &str = "/tmp/pedal-preview.wav";
 const DEFAULT_TEST_AUDIO_FILE: &str = "/usr/share/pedal/test-audio/guitarjam-184.wav";
+const DEFAULT_RIFF_DIRECTORY: &str = "/var/lib/pedal/riffs";
 
 struct ModelMailboxes {
     pre: Arc<SwapMailbox<AmpProcessor>>,
@@ -39,6 +42,7 @@ struct DspParameters {
     amp: Arc<AmpParameters>,
     effects: Arc<EffectsParameters>,
     tuner: Arc<TunerParameters>,
+    metronome: Arc<MetronomeParameters>,
 }
 
 #[derive(Clone)]
@@ -55,6 +59,8 @@ struct ControlContext {
     preview_path: PathBuf,
     test_audio_path: PathBuf,
     preview_lock: Arc<Mutex<()>>,
+    riff_vault: Arc<Mutex<RiffVault>>,
+    riff_directory: PathBuf,
 }
 
 impl DspParameters {
@@ -73,6 +79,10 @@ impl DspParameters {
             )),
             effects: Arc::new(EffectsParameters::from_state(state)),
             tuner: Arc::new(TunerParameters::new(state.tuner_enabled)),
+            metronome: Arc::new(MetronomeParameters::new(
+                state.metronome_enabled,
+                state.metronome_bpm,
+            )),
         }
     }
 
@@ -87,6 +97,8 @@ impl DspParameters {
         );
         self.effects.update(state);
         self.tuner.update(state.tuner_enabled);
+        self.metronome
+            .update(state.metronome_enabled, state.metronome_bpm);
     }
 }
 
@@ -106,6 +118,9 @@ fn main() -> std::io::Result<()> {
     let test_audio_path = env::var_os("PEDAL_TEST_AUDIO_FILE")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(DEFAULT_TEST_AUDIO_FILE));
+    let riff_directory = env::var_os("PEDAL_RIFF_DIRECTORY")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_RIFF_DIRECTORY));
 
     prepare_socket(&socket_path)?;
     let listener = UnixListener::bind(&socket_path)?;
@@ -114,6 +129,7 @@ fn main() -> std::io::Result<()> {
     // loop as playing after a restart.
     restored_state.looper_mode = LooperMode::Stopped.as_state().to_owned();
     restored_state.tuner_enabled = false;
+    restored_state.metronome_enabled = false;
     let restored_presets = pedal_engine::presets::load_or_default(&preset_path);
     if restored_state
         .preset_id
@@ -143,6 +159,7 @@ fn main() -> std::io::Result<()> {
     });
     let telemetry = Arc::new(RealtimeTelemetry::default());
     let tuner_telemetry = Arc::new(TunerTelemetry::default());
+    let riff_vault = Arc::new(Mutex::new(RiffVault::new(48_000, DEFAULT_SECONDS)));
     if audio_is_enabled() {
         spawn_audio_worker(
             Arc::clone(&state),
@@ -151,6 +168,7 @@ fn main() -> std::io::Result<()> {
             Arc::clone(&telemetry),
             Arc::clone(&tuner_telemetry),
             Arc::clone(&model_mailboxes),
+            Arc::clone(&riff_vault),
             &state_path,
         );
     } else {
@@ -169,6 +187,8 @@ fn main() -> std::io::Result<()> {
         preview_path,
         test_audio_path,
         preview_lock: Arc::new(Mutex::new(())),
+        riff_vault,
+        riff_directory,
     };
     eprintln!("pedal-engine listening on {}", socket_path.display());
 
@@ -214,6 +234,52 @@ fn serve_client(stream: UnixStream, context: ControlContext) -> std::io::Result<
         } else if let Some(request) = serde_json::from_str::<Request>(&line)
             .ok()
             .filter(|request| request.api == API_VERSION)
+            && request.message_type == "get_state"
+        {
+            let mut state = context.state.lock().expect("control state lock poisoned");
+            state.looper_mode = context
+                .dsp_parameters
+                .effects
+                .looper_mode()
+                .as_state()
+                .to_owned();
+            state_response(request.id, &state)
+        } else if let Some(request) = serde_json::from_str::<Request>(&line)
+            .ok()
+            .filter(|request| request.api == API_VERSION)
+            && request.message_type == "list_riffs"
+        {
+            match pedal_engine::riff_vault::list(&context.riff_directory) {
+                Ok(riffs) => riffs_response(request.id, &riffs),
+                Err(error) => control_error(request.id, "riff_list_failed", &error),
+            }
+        } else if let Some(request) = serde_json::from_str::<Request>(&line)
+            .ok()
+            .filter(|request| request.api == API_VERSION)
+            && request.message_type == "save_riff"
+        {
+            let name = request
+                .payload
+                .get("name")
+                .and_then(serde_json::Value::as_str);
+            let preset = context
+                .state
+                .lock()
+                .expect("control state lock poisoned")
+                .preset
+                .clone();
+            match pedal_engine::riff_vault::save_latest(
+                &context.riff_vault,
+                &context.riff_directory,
+                name,
+                &preset,
+            ) {
+                Ok(riff) => riff_response(request.id, &riff),
+                Err(error) => control_error(request.id, "riff_save_failed", &error),
+            }
+        } else if let Some(request) = serde_json::from_str::<Request>(&line)
+            .ok()
+            .filter(|request| request.api == API_VERSION)
             && request.message_type == "render_preview"
         {
             let preview_state = context
@@ -256,8 +322,32 @@ fn serve_client(stream: UnixStream, context: ControlContext) -> std::io::Result<
             let mut presets = context.presets.lock().expect("preset store lock poisoned");
             let previous = state.clone();
             let previous_presets = presets.clone();
+            let parsed_request = serde_json::from_str::<Request>(&line).ok();
             let response =
                 handle_control_line(&mut state, &line, &context.model_mailboxes, &mut presets);
+            if response.message_type == "state"
+                && let Some(request) = parsed_request.as_ref()
+                && request.message_type == "looper_action"
+            {
+                match state.looper_mode.as_str() {
+                    "count_in" => context
+                        .dsp_parameters
+                        .effects
+                        .start_quantized_loop(state.looper_bpm, state.looper_bars),
+                    "playing" => context
+                        .dsp_parameters
+                        .effects
+                        .set_looper_mode(LooperMode::Playing),
+                    "overdubbing" => context
+                        .dsp_parameters
+                        .effects
+                        .set_looper_mode(LooperMode::Overdubbing),
+                    _ => context
+                        .dsp_parameters
+                        .effects
+                        .set_looper_mode(LooperMode::Stopped),
+                }
+            }
             context
                 .bypass_flags
                 .all
@@ -302,6 +392,7 @@ fn spawn_audio_worker(
     telemetry: Arc<RealtimeTelemetry>,
     tuner_telemetry: Arc<TunerTelemetry>,
     model_mailboxes: Arc<ModelMailboxes>,
+    riff_vault: Arc<Mutex<RiffVault>>,
     state_path: &Path,
 ) {
     let state_path = state_path.to_owned();
@@ -315,6 +406,7 @@ fn spawn_audio_worker(
                 telemetry,
                 tuner_telemetry,
                 model_mailboxes,
+                riff_vault,
                 &state_path,
             ) {
                 eprintln!("audio engine stopped: {error}");
@@ -330,6 +422,7 @@ fn run_audio_worker(
     telemetry: Arc<RealtimeTelemetry>,
     tuner_telemetry: Arc<TunerTelemetry>,
     model_mailboxes: Arc<ModelMailboxes>,
+    riff_vault: Arc<Mutex<RiffVault>>,
     state_path: &Path,
 ) -> Result<(), String> {
     let config = AudioConfig {
@@ -412,7 +505,13 @@ fn run_audio_worker(
         tuner_telemetry,
         negotiated.sample_rate,
     );
-    let mut processor = SafetyProcessor::new(chain, Arc::clone(&telemetry), negotiated.sample_rate);
+    let chain = MetronomeProcessor::new(
+        chain,
+        Arc::clone(&dsp_parameters.metronome),
+        negotiated.sample_rate,
+    );
+    let processor = SafetyProcessor::new(chain, Arc::clone(&telemetry), negotiated.sample_rate);
+    let mut processor = RiffVaultProcessor::new(processor, riff_vault);
     eprintln!(
         "audio ready on {} at {} Hz / {} frames",
         negotiated.device.name, negotiated.sample_rate, negotiated.period_frames
@@ -670,6 +769,36 @@ fn handle_control_line(
         return state_response(request.id, state);
     }
 
+    if request.message_type == "set_metronome" {
+        let Some(enabled) = request
+            .payload
+            .get("enabled")
+            .and_then(serde_json::Value::as_bool)
+        else {
+            return control_error(
+                request.id,
+                "invalid_payload",
+                "set_metronome requires a boolean 'enabled' field",
+            );
+        };
+        let bpm = request
+            .payload
+            .get("bpm")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .unwrap_or(state.metronome_bpm);
+        if !(30..=300).contains(&bpm) {
+            return control_error(
+                request.id,
+                "invalid_payload",
+                "metronome BPM must be between 30 and 300",
+            );
+        }
+        state.metronome_enabled = enabled;
+        state.metronome_bpm = bpm;
+        return state_response(request.id, state);
+    }
+
     if request.message_type == "looper_action" {
         let Some(action) = request
             .payload
@@ -679,7 +808,37 @@ fn handle_control_line(
             return control_error(request.id, "invalid_payload", "looper action is required");
         };
         let mode = match action {
-            "record" => LooperMode::Recording,
+            "record" => {
+                let bpm = request
+                    .payload
+                    .get("bpm")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|value| u32::try_from(value).ok())
+                    .unwrap_or(state.looper_bpm);
+                let bars = request
+                    .payload
+                    .get("bars")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|value| u8::try_from(value).ok())
+                    .unwrap_or(state.looper_bars);
+                if !(30..=300).contains(&bpm) || !matches!(bars, 1 | 2 | 4 | 8) {
+                    return control_error(
+                        request.id,
+                        "invalid_looper_timing",
+                        "looper BPM must be 30 to 300 and bars must be 1, 2, 4, or 8",
+                    );
+                }
+                if bars as f32 * 4.0 * 60.0 / bpm as f32 > 30.0 {
+                    return control_error(
+                        request.id,
+                        "loop_too_long",
+                        "that bar length exceeds the 30 second looper limit at this BPM",
+                    );
+                }
+                state.looper_bpm = bpm;
+                state.looper_bars = bars;
+                LooperMode::CountIn
+            }
             "play" => LooperMode::Playing,
             "overdub" => LooperMode::Overdubbing,
             "stop" | "clear" => LooperMode::Stopped,
@@ -938,6 +1097,24 @@ fn preview_response(id: String, path: &Path, duration_seconds: f32) -> Response 
     }
 }
 
+fn riff_response(id: String, riff: &SavedRiff) -> Response {
+    Response {
+        api: API_VERSION,
+        id,
+        message_type: "riff",
+        payload: serde_json::to_value(riff).expect("riff metadata serializes"),
+    }
+}
+
+fn riffs_response(id: String, riffs: &[SavedRiff]) -> Response {
+    Response {
+        api: API_VERSION,
+        id,
+        message_type: "riffs",
+        payload: serde_json::json!({"riffs": riffs}),
+    }
+}
+
 fn control_error(id: String, code: &str, message: &str) -> Response {
     Response {
         api: API_VERSION,
@@ -1095,11 +1272,12 @@ mod tests {
         handle(&mut state, rate, &mailboxes);
         assert_eq!(state.chorus_rate_hz, 2.5);
 
-        let record =
-            r#"{"api":1,"id":"loop","type":"looper_action","payload":{"action":"record"}}"#;
+        let record = r#"{"api":1,"id":"loop","type":"looper_action","payload":{"action":"record","bpm":120,"bars":2}}"#;
         let response = handle(&mut state, record, &mailboxes);
-        assert_eq!(response.payload["looper_mode"], "recording");
-        assert_eq!(state.looper_mode, "recording");
+        assert_eq!(response.payload["looper_mode"], "count_in");
+        assert_eq!(state.looper_mode, "count_in");
+        assert_eq!(state.looper_bpm, 120);
+        assert_eq!(state.looper_bars, 2);
     }
 
     #[test]

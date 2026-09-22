@@ -90,10 +90,10 @@ Each built-in effect is independently bypassable. `effect` is one of `gate`, `co
 
 ```json
 {"api":1,"id":"ui-7","type":"set_effect_bypass","payload":{"effect":"delay","bypassed":false}}
-{"api":1,"id":"ui-8","type":"looper_action","payload":{"action":"record"}}
+{"api":1,"id":"ui-8","type":"looper_action","payload":{"action":"record","bpm":100,"bars":4}}
 ```
 
-Looper actions are `record`, `play`, `overdub`, and `stop`. The looper keeps up to 30 seconds of mono post-reverb audio in RAM. Its audio is intentionally not persisted: after a restart it reports `stopped` and begins with an empty loop.
+Looper actions are `record`, `play`, `overdub`, and `stop`. `record` starts a four-beat audio-thread count-in, then records on beat one for the requested 1, 2, 4, or 8 bars (30–300 BPM). It automatically changes to playback on the selected bar boundary. Configurations longer than 30 seconds are rejected. The looper keeps up to 30 seconds of mono post-reverb audio in RAM. Its audio is intentionally not persisted: after a restart it reports `stopped` and begins with an empty loop.
 
 ## Open the clean-input tuner
 

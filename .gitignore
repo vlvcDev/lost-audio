@@ -4,6 +4,7 @@
 /build/
 /.pedal-dev/
 tools/dev-env.sh
+deploy/pedal-secrets.env
 /.idea/
 *.iml
 __pycache__/

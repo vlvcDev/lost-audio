@@ -14,6 +14,10 @@ const HISTORY_FRAMES: usize = ANALYSIS_FRAMES * DECIMATION;
 const ANALYSIS_HOP: usize = 2_048;
 const MIN_FREQUENCY_HZ: f32 = 55.0;
 const MAX_FREQUENCY_HZ: f32 = 1_000.0;
+// Autocorrelation also peaks at whole-number multiples of a period. Prefer the
+// first strong local peak so a decaying B/E string does not get reported as a
+// lower subharmonic several octaves down.
+const FUNDAMENTAL_PEAK_RATIO: f32 = 0.88;
 
 struct AtomicFloat(AtomicU32);
 
@@ -146,10 +150,10 @@ impl<P> TunerTapProcessor<P> {
         let analysis_rate = self.sample_rate / DECIMATION as f32;
         let minimum_lag = (analysis_rate / MAX_FREQUENCY_HZ) as usize;
         let maximum_lag = (analysis_rate / MIN_FREQUENCY_HZ) as usize;
-        let mut best_lag = minimum_lag;
+        let lag_count = maximum_lag - minimum_lag + 1;
+        let mut scores = [0.0_f32; ANALYSIS_FRAMES];
+        let mut strongest_lag = minimum_lag;
         let mut best_score = -1.0_f32;
-        let mut previous = -1.0_f32;
-        let mut after = -1.0_f32;
         for lag in minimum_lag..=maximum_lag {
             let mut cross = 0.0;
             let mut left_energy = 0.0;
@@ -162,26 +166,43 @@ impl<P> TunerTapProcessor<P> {
                 right_energy += right * right;
             }
             let score = cross / (left_energy * right_energy).sqrt().max(0.000_001);
+            scores[lag - minimum_lag] = score;
             if score > best_score {
-                previous = best_score;
                 best_score = score;
-                best_lag = lag;
-                after = -1.0;
-            } else if lag == best_lag + 1 {
-                after = score;
+                strongest_lag = lag;
             }
         }
         if best_score < 0.55 {
             self.telemetry.clear();
             return;
         }
+        let fundamental_threshold = (best_score * FUNDAMENTAL_PEAK_RATIO).max(0.55);
+        let best_offset = strongest_lag - minimum_lag;
+        let fundamental_offset = (1..lag_count.saturating_sub(1))
+            .find(|&offset| {
+                let score = scores[offset];
+                score >= fundamental_threshold
+                    && score >= scores[offset - 1]
+                    && score > scores[offset + 1]
+            })
+            .unwrap_or(best_offset);
+        let best_lag = minimum_lag + fundamental_offset;
+        let previous = fundamental_offset
+            .checked_sub(1)
+            .map(|offset| scores[offset])
+            .unwrap_or(-1.0);
+        let after = if fundamental_offset + 1 < lag_count {
+            scores[fundamental_offset + 1]
+        } else {
+            -1.0
+        };
         let refinement = if previous > -0.5 && after > -0.5 {
             (0.5 * (previous - after) / (previous - 2.0 * best_score + after)).clamp(-0.5, 0.5)
         } else {
             0.0
         };
         let frequency = analysis_rate / (best_lag as f32 + refinement);
-        self.telemetry.record(frequency, best_score);
+        self.telemetry.record(frequency, scores[fundamental_offset]);
     }
 }
 
@@ -200,21 +221,45 @@ mod tests {
     use super::*;
     use crate::dsp::Passthrough;
 
-    #[test]
-    fn detects_a_clean_low_e_when_enabled() {
+    fn detect_pitch(frequency_hz: f32) -> (f32, f32) {
         let parameters = Arc::new(TunerParameters::new(true));
         let telemetry = Arc::new(TunerTelemetry::default());
         let mut tuner =
             TunerTapProcessor::new(Passthrough, parameters, Arc::clone(&telemetry), 48_000);
-        let mut samples = (0..10_000)
-            .map(|index| (index as f32 * 82.41 * std::f32::consts::TAU / 48_000.0).sin() * 0.25)
+        // A short decaying harmonic-rich waveform is closer to a picked guitar
+        // string than a mathematical sine, particularly on B and high E.
+        let mut samples = (0..12_000)
+            .map(|index| {
+                let time = index as f32 / 48_000.0;
+                let phase = time * frequency_hz * std::f32::consts::TAU;
+                let envelope = (-time * 2.0).exp();
+                envelope
+                    * (phase.sin() * 0.22 + (phase * 2.0).sin() * 0.08 + (phase * 3.0).sin() * 0.03)
+            })
             .collect::<Vec<_>>();
         for block in samples.chunks_mut(64) {
             tuner.process(block);
         }
-        let (frequency, confidence) = telemetry.snapshot();
+        telemetry.snapshot()
+    }
+
+    #[test]
+    fn detects_a_clean_low_e_when_enabled() {
+        let (frequency, confidence) = detect_pitch(82.41);
         assert!((frequency - 82.41).abs() < 2.0, "detected {frequency}");
         assert!(confidence > 0.7);
+    }
+
+    #[test]
+    fn detects_b_and_high_e_without_falling_to_a_subharmonic() {
+        for expected in [246.94, 329.63] {
+            let (frequency, confidence) = detect_pitch(expected);
+            assert!(
+                (frequency - expected).abs() < 4.0,
+                "expected {expected} Hz, detected {frequency} Hz"
+            );
+            assert!(confidence > 0.6, "confidence was {confidence}");
+        }
     }
 
     #[test]

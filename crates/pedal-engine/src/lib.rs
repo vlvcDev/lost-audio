@@ -6,8 +6,10 @@ use serde_json::{Value, json};
 pub mod audio;
 pub mod dsp;
 pub mod effects;
+pub mod metronome;
 pub mod presets;
 pub mod preview;
+pub mod riff_vault;
 pub mod state;
 pub mod tuner;
 
@@ -76,7 +78,11 @@ pub struct EngineState {
     pub reverb_mix: f32,
     pub looper_mode: String,
     pub looper_visible: bool,
+    pub looper_bpm: u32,
+    pub looper_bars: u8,
     pub tuner_enabled: bool,
+    pub metronome_enabled: bool,
+    pub metronome_bpm: u32,
     pub sample_rate: u32,
     pub buffer_frames: u32,
 }
@@ -125,7 +131,11 @@ impl Default for EngineState {
             reverb_mix: 0.25,
             looper_mode: "stopped".to_owned(),
             looper_visible: false,
+            looper_bpm: 100,
+            looper_bars: 4,
             tuner_enabled: false,
+            metronome_enabled: false,
+            metronome_bpm: 80,
             sample_rate: 48_000,
             buffer_frames: 64,
         }
@@ -177,7 +187,11 @@ impl EngineState {
             "reverb_mix": self.reverb_mix,
             "looper_mode": self.looper_mode,
             "looper_visible": self.looper_visible,
+            "looper_bpm": self.looper_bpm,
+            "looper_bars": self.looper_bars,
             "tuner_enabled": self.tuner_enabled,
+            "metronome_enabled": self.metronome_enabled,
+            "metronome_bpm": self.metronome_bpm,
             "sample_rate": self.sample_rate,
             "buffer_frames": self.buffer_frames,
         })

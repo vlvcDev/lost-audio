@@ -6,11 +6,15 @@ Pedal V0 is a Raspberry Pi 5 guitar processor focused on two jobs: running Neura
 
 - Rust daemon owns the continuous ALSA stream, restores pedal and amp NAM slots, and provides a 30 Hz input high-pass filter, gate, compressor, post-NAM EQ, chorus, delay, reverb, 30-second RAM looper, −1 dBFS safety limiter, and real-time-safe controls.
 - Flutter Linux UI controls the rig and displays input/output peaks, clipping, DSP CPU use, and cumulative XRuns. Its clean-input tuner supports Standard, Drop D, D Standard, Drop C, Open G, and Open D.
+- **Daily Drill** is a three-exercise rotating session: scale, triad-arpeggio, and picking drills each run twice continuously after one initial count-in. Exercises are presented one at a time; after two passes, the player explicitly chooses **Next** before viewing the next drill. It uses the clean-input analyzer to score each expected pitch and onset against a smooth tablature playhead; scores intentionally do not claim to identify a particular string or fret.
+- Completed Daily Drill sessions are kept in a compact local history (newest 100), including a best-score card. The engine supplies its count-in and practice click directly to the low-latency audio output.
+- **Riff Vault** continuously retains the latest 30 seconds of clean guitar and processed rig audio in RAM. Tap its bookmark control in Input Scope to save a named, local clean/rig WAV pair and audition either take later.
 - A hardware-free **PREVIEW** control renders a deterministic guitar-like riff through the current pedal and amp chain, then plays it through the computer's normal output.
 - Presets save both NAM slots, bypass choices, and all adjustable controls in an offline, power-safe library.
 - Python catalog tool indexes local `.nam` files into SQLite using content hashes.
 - Offline catalog daemon exposes the persistent library to Flutter over a local Unix socket.
 - TONE3000 client implements the hosted PKCE Select flow, A2-only NAM model listing, token refresh, and authenticated atomic downloads behind a mockable transport.
+- AI Tone Maker accepts a touchscreen prompt, asks OpenAI for a strict bounded rig plan, searches a small TONE3000 A2 NAM candidate set, and requires one explicit apply action before downloading or changing the live rig. When configured, TypeSafe Jev rapidly scores the small candidate set from catalog metadata and displays its confidence; it never runs in the audio path.
 - Engine state is atomically persisted under `/var/lib/pedal`; the last playable rig survives a power cycle with no network connection.
 - Python mock daemon makes the UI testable before the Rust/Pi toolchain is installed.
 - ALSA discovery, negotiation, and continuous block processing are implemented. NAM Core A2 inference is integrated into the daemon and passes both the desktop soak and restored-model startup checks; live model swapping and the built-in pedalboard effects are available. IR convolution remains deferred.
@@ -54,7 +58,7 @@ guitar input -> 30 Hz high-pass -> gate -> compressor -> optional pedal/pre NAM
 
 The header's **Tuner** control reads the clean guitar input before the gate, NAM, and effect chain, so it remains useful regardless of the current rig. It provides a cents needle plus common tuning targets; it does not mute or change the live sound and turns off when closed.
 
-The Flutter tone picker asks whether a model should load as **PEDAL** or **AMP** and displays the resulting chain. The main rig screen is a scrollable, PSX-inspired pedalboard: tap a pedal face to edit its settings or its footswitch to engage/bypass it. Gate, compressor, EQ, chorus, delay, and reverb settings and on/off states are preset-safe. The looper captures up to 30 seconds after the reverb and supports record, play, overdub, and stop; loop audio is intentionally RAM-only and clears after a restart. Pedal controls provide drive, dry/wet mix, and level around the capture. Amp controls provide a post-capture three-band tone stack and volume. Models, bypass settings, and control values survive an offline restart. A hardware-free integration test also processes a block through two real A2 networks in series.
+The Flutter tone picker asks whether a model should load as **PEDAL** or **AMP** and displays the resulting chain. The main rig screen is a scrollable, PSX-inspired pedalboard: tap a pedal face to edit its settings or its footswitch to engage/bypass it. Gate, compressor, EQ, chorus, delay, and reverb settings and on/off states are preset-safe. The looper captures up to 30 seconds after the reverb and supports record, play, overdub, and stop; its record flow gives four count-in ticks, then captures a selected 1, 2, 4, or 8 bars at 30–300 BPM and changes to playback precisely at the bar boundary. Loop audio is intentionally RAM-only and clears after a restart. Pedal controls provide drive, dry/wet mix, and level around the capture. Amp controls provide a post-capture three-band tone stack and volume. Models, bypass settings, and control values survive an offline restart. A hardware-free integration test also processes a block through two real A2 networks in series.
 
 Tap the large rig name to open the preset library. It supports save, load, rename, and delete; an asterisk marks a loaded preset whose slot or control settings have been changed. Preset loading validates all referenced local models before replacing the current rig, and deleting a preset never interrupts the sound currently in memory.
 
@@ -84,7 +88,27 @@ export PEDAL_TONE3000_REDIRECT_URI=http://pedal.local:8787/callback
 make catalog-serve
 ```
 
-The UI presents the short handoff address `http://pedal.local:8787/connect`; opening it redirects to the current PKCE-protected login. The callback listener binds on all interfaces at the explicit redirect port, so the firewall must allow TCP 8787 on trusted local networks. For a production Pi, put the two variables in `/etc/pedal/tone3000.env`; the systemd unit reads that file. Tokens default to `tone3000-tokens.json` beside the catalog database with owner-only permissions.
+The UI presents the short handoff address `http://pedal.local:8787/connect`; opening it redirects to the current PKCE-protected login. The callback listener binds on all interfaces at the explicit redirect port, so the firewall must allow TCP 8787 on trusted local networks. For a production Pi, put the variables from `deploy/pedal-secrets.env.example` in `/etc/pedal/pedal-secrets.env` with owner-only permissions; the catalog systemd unit reads that file. Tokens default to `tone3000-tokens.json` beside the catalog database with owner-only permissions.
+
+### AI Tone Maker
+
+The header's ✨ control opens **Tone Maker**. It sends a natural-language request to the local catalog service—not directly from Flutter—so `PEDAL_OPENAI_API_KEY` stays out of the touchscreen application. The planner returns strict structured settings, then makes at most one small TONE3000 search for a pedal NAM and one for an amp NAM. Search is only performed after the player taps **PLAN MY TONE**; it is never a background task. When `PEDAL_TYPESAFE_API_KEY` is configured, Jev scores every returned pedal/amp pairing from the plan plus TONE3000 names, author, and gear metadata, then AERO>>DSP selects the three highest matches and displays confidence on each card. This is metadata ranking, not an assertion that Jev has heard the NAM. A malformed, unavailable, or low-confidence Jev response automatically falls back to the existing OpenAI curator. **DOWNLOAD + APPLY RIG** remains the separate, player-controlled action that installs locally validated A2 NAMs, sets the rig controls, and makes the selected models available offline after a restart.
+
+For development, fill the ignored `deploy/pedal-secrets.env` file. `tools/dev.sh` passes it only to the catalog/Tone Maker subprocess, so Flutter does not inherit either provider credential. Add `PEDAL_TYPESAFE_API_KEY` to enable the optional Jev ranker; OpenAI remains required for the free-form planner. The TONE3000 account still needs to be connected through its normal OAuth flow before remote candidate search can run.
+
+### Riff Vault Backing Lab
+
+Each saved Time Machine/Riff Vault capture has a clean DI WAV. Its ✨ **Make backing track** action opens **Backing Lab**. The player describes the accompaniment—instrumentation, feel, and energy—then explicitly taps **GENERATE**. The catalog service queues a Stable Audio audio-to-audio request using that clean DI as a musical reference; it never sends the request from Flutter and never touches the real-time audio thread.
+
+The first render choices are 20 or 40 seconds. The completed stereo WAV and a small JSON manifest are cached under `/var/lib/pedal/riffs/backing-tracks` (or `.pedal-dev/riffs/backing-tracks` in the development harness). They remain playable from the Riff Vault after an offline restart. Generation requires internet, but playback does not. A generated part is an accompaniment experiment rather than a guaranteed note-for-note transcription of the riff.
+
+Create a Stability AI account, add API credits, and create an API key at [Stability's API-key page](https://platform.stability.ai/account/keys). Then add only this line to the ignored local secrets file and restart the catalog service:
+
+```sh
+PEDAL_STABILITY_API_KEY=your_stability_key
+```
+
+Do not place the key in Dart code, commit it, or put it in a phone/browser client. Stable Audio bills successful audio requests in credits; generation is deliberately always a button press, never an automatic background action.
 
 For the current desktop end-to-end demo, the development harness replaces the three-terminal setup:
 

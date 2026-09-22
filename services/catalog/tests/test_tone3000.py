@@ -86,6 +86,26 @@ class Tone3000Tests(unittest.TestCase):
             transport.requests[0].get_header("Authorization"), "Bearer access"
         )
 
+    def test_search_is_small_a2_nam_only_and_uses_the_requested_gear(self) -> None:
+        transport = FakeTransport([json_response({"data": []})])
+        client = Tone3000Client(
+            "t3k_pub_test",
+            tokens=Tokens("access", "refresh", 10_000),
+            transport=transport,
+            clock=lambda: 1_000,
+        )
+
+        client.search_tones("tight high gain", gears=("amp", "amp-cab"))
+
+        parsed = urllib.parse.urlsplit(transport.requests[0].full_url)
+        params = urllib.parse.parse_qs(parsed.query)
+        self.assertEqual(parsed.path, "/api/v1/tones/search")
+        self.assertEqual(params["query"], ["tight high gain"])
+        self.assertEqual(params["gears"], ["amp_amp-cab"])
+        self.assertEqual(params["format"], ["nam"])
+        self.assertEqual(params["architecture"], ["2"])
+        self.assertEqual(params["page_size"], ["5"])
+
     def test_exchange_code_uses_official_form_fields(self) -> None:
         transport = FakeTransport(
             [json_response({"access_token": "a", "refresh_token": "r", "expires_in": 3600})]

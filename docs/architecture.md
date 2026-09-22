@@ -47,6 +47,8 @@ The control socket is `/run/pedal/control.sock` in production and `/tmp/pedal-co
 
 The catalog socket is `/run/pedal/catalog.sock` in production and `/tmp/pedal-catalog.sock` during development. It serves local metadata plus TONE3000 Select status, selected-tone model listing, and download operations. Search and previews stay in TONE3000's hosted Select experience. Flutter sends a downloaded absolute model path to the Rust control socket for authoritative validation and preparation. Failure of any online operation does not affect local listing or playback.
 
+Backing Lab is another catalog-owned, opt-in cloud boundary. Flutter chooses an existing saved Riff Vault ID plus a style description; the catalog resolves only that riff's clean DI path inside `/var/lib/pedal/riffs`, queues the Stable Audio request on a worker, and persists the returned WAV under `riffs/backing-tracks`. The Rust live-audio daemon neither owns the Stability credential nor waits for cloud work. Once rendered, a backing file is a normal local playback asset and survives an offline restart.
+
 ## TONE3000 boundary
 
 The Python worker follows TONE3000's documented OAuth 2.0 Authorization Code flow with PKCE. API access and model downloads carry the user's bearer token; the worker refuses to forward that token to a different origin. Downloads are written to a temporary file, hashed with SHA-256, and atomically moved into the model library before indexing. Tokens, HTTP, file writes, and SQLite never enter the Rust audio callback.

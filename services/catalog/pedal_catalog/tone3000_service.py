@@ -112,6 +112,24 @@ class Tone3000Service:
         self._sync_tokens()
         return [self._model_summary(item, tone_id) for item in self._items(payload)]
 
+    def search(self, query: str, *, role: str) -> list[dict[str, Any]]:
+        """Return a deliberately small, compatible candidate list for AI tone making."""
+        gears = ("pedal",) if role == "pedal" else ("amp", "amp-cab")
+        payload = self.client.search_tones(query, gears=gears, page_size=5)
+        self._sync_tokens()
+        return [self._tone_summary(item) for item in self._items(payload)]
+
+    def download_best_model(
+        self,
+        tone_id: str,
+        models_dir: Path,
+    ) -> tuple[Path, str]:
+        """Install the first TONE3000-sorted A2 model for an accessible tone."""
+        models = self.models(tone_id)
+        if not models:
+            raise Tone3000Error("TONE3000 tone has no compatible NAM A2 models")
+        return self.download(tone_id, models[0]["id"], models_dir)
+
     def download(
         self,
         tone_id: str,

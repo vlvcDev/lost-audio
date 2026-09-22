@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pedal_ui/main.dart';
@@ -6,12 +8,13 @@ void main() {
   testWidgets('shows the disconnected rig shell', (tester) async {
     await tester.pumpWidget(const PedalApp());
 
-    expect(find.text('LOST//AUDIO'), findsOneWidget);
+    expect(find.text('AERO>>DSP'), findsOneWidget);
     expect(find.text('SIGNAL PATH'), findsOneWidget);
     expect(find.text('NAM'), findsNWidgets(2));
     expect(find.text('GATE'), findsOneWidget);
     expect(find.text('Waiting for engine'), findsOneWidget);
     expect(find.byTooltip('Test audio'), findsOneWidget);
+    expect(find.byTooltip('AI Tone Maker'), findsOneWidget);
     expect(find.byTooltip('Reconnect engine'), findsOneWidget);
     expect(find.text('INPUT SCOPE'), findsOneWidget);
     expect(find.text('AERO LAGOON'), findsOneWidget);
@@ -75,6 +78,84 @@ void main() {
     expect(model.toneId, '7');
   });
 
+  test('AI tone recommendation parses a selectable ranked rig', () {
+    final recommendation = AiToneRecommendation.fromJson({
+      'recommendation_id': 'ai-1',
+      'ranking_provider': 'jev',
+      'plan': {
+        'summary': 'Tight rhythm rig',
+        'pedal_query': 'tight overdrive',
+        'amp_query': 'high gain amp',
+        'controls': {'pedal_drive_db': 8.0},
+        'effects': {'eq': true},
+      },
+      'rigs': [
+        {
+          'label': 'Focused metal',
+          'rationale': 'This one stays tight and clear.',
+          'ranking_confidence': .87,
+          'ranking_score': .91,
+          'pedal': {
+            'id': '7',
+            'name': 'Drive',
+            'author': 'Ada',
+            'gear': 'pedal'
+          },
+          'amp': {'id': '8', 'name': 'Amp', 'author': 'Ada', 'gear': 'amp'},
+        },
+      ],
+    });
+
+    expect(recommendation.id, 'ai-1');
+    expect(recommendation.plan.controls['pedal_drive_db'], 8);
+    expect(recommendation.rigs.single.pedal?.name, 'Drive');
+    expect(recommendation.rigs.single.amp.gear, 'amp');
+    expect(recommendation.rankingProvider, 'jev');
+    expect(recommendation.rigs.single.confidenceLabel, 'HIGH');
+  });
+
+  test('applied AI tone retains a local-only Tone Memory recipe', () {
+    final application = AiToneApplication.fromJson({
+      'summary': 'Tight rhythm rig',
+      'pre_model': {
+        'name': 'Boost.nam',
+        'path': '/models/boost.nam',
+        'size_bytes': 123,
+        'source': 'tone3000:ai:pedal-1',
+        'favorite': false,
+      },
+      'amp_model': {
+        'name': 'Amp.nam',
+        'path': '/models/amp.nam',
+        'size_bytes': 456,
+        'source': 'tone3000:ai:amp-1',
+        'favorite': false,
+      },
+      'controls': {'amp_mid_db': 2.0},
+      'effects': {'eq': true},
+      'tone_memory': {
+        'query': 'tight metal rhythm',
+        'summary': 'Tight rhythm rig',
+        'rig_label': 'Focused metal',
+        'pre_model': {
+          'name': 'Boost.nam',
+          'path': '/models/boost.nam',
+          'source': 'tone3000:ai:pedal-1',
+        },
+        'amp_model': {
+          'name': 'Amp.nam',
+          'path': '/models/amp.nam',
+          'source': 'tone3000:ai:amp-1',
+        },
+        'controls': {'amp_mid_db': 2.0},
+        'effects': {'eq': true},
+      },
+    });
+
+    expect(application.memoryQuery, 'tight metal rhythm');
+    expect(application.memoryCandidate['rig_label'], 'Focused metal');
+  });
+
   test('preview response parses the rendered audio file', () {
     final preview = PreviewAudio.fromJson({
       'path': '/tmp/pedal-preview.wav',
@@ -107,7 +188,6 @@ Audio
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-
     await tester.pumpWidget(
       PedalAppTestShell(
         child: Tone3000BrowserSheet(
@@ -150,6 +230,158 @@ Audio
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('AI Tone Maker fits the target touchscreen', (tester) async {
+    tester.view.physicalSize = const Size(480, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      PedalAppTestShell(
+        child: ToneMakerSheet(
+          catalog: FakeAiCatalogClient(),
+          engineConnected: false,
+          onApply: (_) async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('TONE MAKER'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Jev-ranked tone cards disclose confidence without auto-applying',
+      (tester) async {
+    tester.view.physicalSize = const Size(480, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var applied = false;
+
+    await tester.pumpWidget(
+      PedalAppTestShell(
+        child: ToneMakerSheet(
+          catalog: FakeAiCatalogClient(),
+          engineConnected: true,
+          onApply: (_) async => applied = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'tight metal rhythm');
+    await tester.tap(find.text('PLAN MY TONE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('JEV RANKING • CATALOG METADATA, NOT AUDIO ANALYSIS'),
+        findsOneWidget);
+    expect(find.text('JEV CONFIDENCE: HIGH • 87%'), findsOneWidget);
+    expect(applied, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('guided tuner locks each target string and allows revisiting it',
+      (tester) async {
+    final meters = StreamController<MeterSnapshot>();
+    addTearDown(meters.close);
+    await tester.pumpWidget(
+      PedalAppTestShell(child: TunerSheet(meters: meters.stream)),
+    );
+
+    expect(find.text('GUIDED STRING'), findsOneWidget);
+    expect(find.textContaining('Tune E2 first'), findsOneWidget);
+
+    await tester.tap(find.text('2 A2'));
+    await tester.pump();
+    expect(find.textContaining('Tune A2 first'), findsOneWidget);
+
+    await tester.tap(find.text('1 E2'));
+    await tester.pump();
+    meters.add(const MeterSnapshot(
+      inputDb: -18,
+      outputDb: -18,
+      clipped: false,
+      cpuPercent: 0,
+      xruns: 0,
+      tunerHz: 82.41,
+      tunerConfidence: .9,
+    ));
+    await tester.pump();
+    expect(find.text('IN TUNE — HOLD IT…'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1050));
+    expect(find.textContaining('Tune A2 first'), findsOneWidget);
+  });
+
+  testWidgets('daily drill presents a touch-safe clean-input exercise',
+      (tester) async {
+    tester.view.physicalSize = const Size(480, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final meters = StreamController<MeterSnapshot>();
+    addTearDown(meters.close);
+
+    await tester.pumpWidget(PedalAppTestShell(
+      child: DailyLessonSheet(
+        meters: meters.stream,
+        lesson: DailyLesson.today(DateTime(2026, 1, 1)),
+      ),
+    ));
+    await tester.pump();
+
+    expect(find.text('DAILY DRILL'), findsOneWidget);
+    expect(find.text('TABLATURE'), findsOneWidget);
+    expect(find.text('START EXERCISE 1/1'), findsOneWidget);
+    expect(find.textContaining('Scores clean pitch + timing'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('daily lesson events retain their conventional tab coordinates', () {
+    const event = DailyLessonEvent('C#3', '5 / 4');
+
+    expect(event.stringNumber, 5);
+    expect(event.fret, 4);
+  });
+
+  test('daily drill schedules three distinct exercises each day', () {
+    final session = DailyLesson.dailySession(DateTime(2026, 1, 1));
+
+    expect(session, hasLength(3));
+    expect(session.map((lesson) => lesson.title).toSet(), hasLength(3));
+  });
+
+  test('practice history records preserve a completed drill score', () {
+    final record = PracticeSessionRecord.fromJson({
+      'completed_at_ms': 1767225600000,
+      'accuracy_percent': 87,
+      'hit_count': 56,
+      'note_count': 66,
+      'average_timing_ms': 42,
+      'exercise_titles': ['E MINOR PENTATONIC'],
+    });
+
+    expect(record.accuracyPercent, 87);
+    expect(record.toJson()['hit_count'], 56);
+    expect(record.exerciseTitles, ['E MINOR PENTATONIC']);
+  });
+
+  test('riff metadata parses local clean and processed takes', () {
+    final riff = RiffCapture.fromJson({
+      'id': 'riff-1',
+      'name': 'Bridge idea',
+      'created_at_ms': 1767225600000,
+      'duration_seconds': 30.0,
+      'clean_path': '/riffs/riff-1-clean.wav',
+      'processed_path': '/riffs/riff-1-rig.wav',
+      'preset': 'Bark',
+    });
+
+    expect(riff.name, 'Bridge idea');
+    expect(riff.durationSeconds, 30);
+    expect(riff.preset, 'Bark');
+  });
+
   test('engine snapshot displays the pedal into amp chain', () {
     final snapshot = EngineSnapshot.fromJson({
       'bypassed': false,
@@ -167,6 +399,8 @@ Audio
       'amp_mid_db': -1.0,
       'amp_treble_db': 3.0,
       'amp_volume_db': -4.0,
+      'looper_bpm': 120,
+      'looper_bars': 2,
       'sample_rate': 48000,
       'buffer_frames': 64,
     });
@@ -176,6 +410,8 @@ Audio
     expect(snapshot.ampBypassed, isFalse);
     expect(snapshot.pedalMix, 0.75);
     expect(snapshot.ampBassDb, 2.5);
+    expect(snapshot.looperBpm, 120);
+    expect(snapshot.looperBars, 2);
     expect(snapshot.presetTitle, 'Drive Rig *');
   });
 
@@ -288,6 +524,31 @@ Audio
     expect(find.text('CHORUS'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('quantized looper controls fit the target touchscreen',
+      (tester) async {
+    tester.view.physicalSize = const Size(480, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      PedalAppTestShell(
+        child: LooperControlsSheet(
+          mode: 'stopped',
+          bpm: 100,
+          bars: 4,
+          onAction: (_, {bpm, bars}) async {},
+          onRemove: () async => false,
+        ),
+      ),
+    );
+
+    expect(find.text('QUANTIZED RECORD'), findsOneWidget);
+    expect(find.text('COUNT IN + RECORD'), findsOneWidget);
+    expect(find.text('4 B'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class FakeControlClient extends ControlClient {
@@ -326,6 +587,57 @@ class UnconfiguredCatalogClient extends CatalogClient {
   @override
   Future<Tone3000Status> tone3000Status() async =>
       const Tone3000Status(available: false, connected: false);
+}
+
+class FakeAiCatalogClient extends CatalogClient {
+  FakeAiCatalogClient() : super(socketPath: '/tmp/pedal-unused-catalog.sock');
+
+  @override
+  Future<ToneMakerStatus> toneMakerStatus() async =>
+      const ToneMakerStatus(available: true, tone3000Connected: true);
+
+  @override
+  Future<AiToneRecommendation> requestAiTone(String prompt) async =>
+      AiToneRecommendation.fromJson({
+        'recommendation_id': 'jev-test',
+        'ranking_provider': 'jev',
+        'plan': {
+          'summary': 'Tight high-gain rhythm with a focused finish.',
+          'pedal_query': 'tight overdrive',
+          'amp_query': 'high gain amp',
+          'controls': {
+            'pedal_drive_db': 8.0,
+            'pedal_mix': 1.0,
+            'pedal_level_db': 0.0,
+          },
+          'effects': {
+            'eq': true,
+            'chorus': false,
+            'delay': false,
+            'reverb': false
+          },
+        },
+        'rigs': [
+          {
+            'label': 'Jev pick 1',
+            'rationale': 'Jev rates this as a strong metadata match.',
+            'ranking_confidence': .87,
+            'ranking_score': .75,
+            'pedal': {
+              'id': 'pedal-1',
+              'name': 'Tight Drive',
+              'author': 'Ada',
+              'gear': 'pedal',
+            },
+            'amp': {
+              'id': 'amp-1',
+              'name': 'High Gain',
+              'author': 'Ada',
+              'gear': 'amp',
+            },
+          },
+        ],
+      });
 }
 
 class PedalAppTestShell extends StatelessWidget {
